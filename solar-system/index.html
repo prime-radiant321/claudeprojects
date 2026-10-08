@@ -12,6 +12,8 @@
   .lbl { color: #fff; font-size: 11px; text-shadow: 0 0 3px #000; pointer-events: none; }
   .zoom { display: flex; gap: 6px; }
   .zoom button { flex: 1; font-size: 18px; padding: 2px 0; cursor: pointer; }
+  .row { display: flex; gap: 6px; margin-top: 8px; }
+  .row button { flex: 1; padding: 4px 0; cursor: pointer; }
   small { color: #999; }
 </style>
 </head>
@@ -22,11 +24,13 @@
   <input id="spd" type="range" min="-3" max="1.5" step="0.01" value="-1">
   <label>Body size: <span id="szv"></span>× true size</label>
   <input id="sz" type="range" min="0" max="3.3" step="0.01" value="3">
+  <div class="row"><button id="truesc">True scale (1×)</button><button id="cmp">Compare sizes</button></div>
+  <p id="cmpnote" hidden><small>Size comparison: every body is drawn at its true size relative to the others, lined up side by side. Distances are ignored here. The Sun is 109 Earths wide.</small></p>
   <label>Zoom <small>(scroll, pinch, or +/− keys)</small></label>
   <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
   <label>Focus</label>
   <select id="focus"></select>
-  <p><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun is capped at 20×, otherwise it would swallow the inner planets). The Moon's distance is true until the enlarged Earth would swallow it; then it is pushed out to 3 Earth radii.</small></p>
+  <p id="note"><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun is capped at 20×, otherwise it would swallow the inner planets). The Moon's distance is true until the enlarged Earth would swallow it; then it is pushed out to 3 Earth radii.</small></p>
 </div>
 <script type="importmap">
 { "imports": {
@@ -72,7 +76,10 @@ controls.zoomSpeed = 2;
 controls.minDistance = 1e-5;
 controls.maxDistance = 300;
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+const ambient = new THREE.AmbientLight(0xffffff, 0.15);
+scene.add(ambient);
+const system = new THREE.Group(), compare = new THREE.Group();
+scene.add(system, compare);
 scene.add(new THREE.PointLight(0xffffff, 3, 0, 0));
 
 // starfield
@@ -94,21 +101,21 @@ const orbitLine = (pts, color) => {
   lineMats.push(m);
   return new Line2(new LineGeometry().setPositions(pts.flatMap(v => [v.x, v.y, v.z])), m);
 };
-const label = (obj, text) => {
+const label = (obj, text, below) => {
   const d = document.createElement('div'); d.className = 'lbl'; d.textContent = text;
   if (ORBIT[text]) d.style.color = '#' + ORBIT[text].toString(16).padStart(6, '0');
-  const l = new CSS2DObject(d); l.center.set(0, 1.5); obj.add(l);
+  const l = new CSS2DObject(d); l.center.set(0, below ? -0.5 : 1.5); obj.add(l);
 };
 
 const sun = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({ color: 0xffcc33 }));
 sun.userData.r = 696340 / AU;
-scene.add(sun); label(sun, 'Sun');
+system.add(sun); label(sun, 'Sun');
 
 const bodies = P.map(([name, r, a, e, T, inc, color]) => {
   const pivot = new THREE.Group(); // orbital plane, tilted by inclination
   pivot.rotation.x = THREE.MathUtils.degToRad(inc);
   pivot.rotation.y = Math.random() * Math.PI * 2; // node orientation
-  scene.add(pivot);
+  system.add(pivot);
   const b = (1 - e * e) ** 0.5 * a, c = a * e; // ellipse, Sun at focus
   const pts = [];
   for (let i = 0; i <= 256; i++) { const t = i / 256 * Math.PI * 2; pts.push(new THREE.Vector3(a * Math.cos(t) - c, 0, b * Math.sin(t))); }
@@ -141,6 +148,31 @@ const meshes = { Sun: sun };
 bodies.forEach(p => meshes[p.name] = p.mesh);
 meshes.Moon = moon;
 
+// size comparison: all bodies side by side at true relative size (1 Earth radius = 0.05 units)
+const saturnRing = () => {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.24, 2.27, 64), new THREE.MeshBasicMaterial({ color: 0xcdb98a, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }));
+  ring.rotation.x = Math.PI / 2 - 0.466;
+  return ring;
+};
+{
+  const k = 0.05 / 6371, rows = [['Sun', 696340, null], ...P.map(p => [p[0], p[1], p[6]])];
+  rows.splice(4, 0, ['Moon', 1737, 0xaaaaaa]);
+  let x = 0, prevExt = 0;
+  rows.forEach(([name, r, color], i) => {
+    const m = new THREE.Mesh(sphere, name === 'Sun' ? sun.material : new THREE.MeshStandardMaterial({ color, roughness: 1 }));
+    const ext = name === 'Saturn' ? r * k * 2.27 : r * k;
+    if (i) x += prevExt + 0.8 + ext;
+    prevExt = ext;
+    m.scale.setScalar(r * k); m.position.x = x;
+    if (name === 'Saturn') m.add(saturnRing());
+    compare.add(m); label(m, name, i % 2 === 0 && i > 0);
+  });
+  compare.userData.span = [-rows[0][1] * k, x + prevExt];
+}
+const show = (g, v) => { g.visible = v; g.traverse(o => { if (o.isCSS2DObject) o.visible = v; }); };
+show(compare, false);
+let comparing = false;
+
 // UI
 const $ = id => document.getElementById(id);
 const focusSel = $('focus');
@@ -162,6 +194,18 @@ const hold = (id, f) => { const b = $(id), stop = () => clearInterval(zt);
   b.onpointerup = b.onpointerleave = stop; };
 hold('zin', 0.85); hold('zout', 1 / 0.85);
 addEventListener('keydown', e => { if (e.key === '+' || e.key === '=') zoom(0.7); if (e.key === '-') zoom(1 / 0.7); });
+const setCompare = on => {
+  comparing = on; show(compare, on); show(system, !on);
+  $('cmp').textContent = on ? 'Back to solar system' : 'Compare sizes';
+  $('cmpnote').hidden = !on; $('note').hidden = on; focusSel.disabled = on;
+  ambient.intensity = on ? 0.5 : 0.15;
+  if (on) {
+    const [a, b] = compare.userData.span, cx = (a + b) / 2 - (b - a) * 0.1; // nudge right of the panel
+    controls.target.set(cx, 0, 0); camera.position.set(cx, (b - a) * 0.15, (b - a) * 0.9);
+  } else focusSel.onchange();
+};
+$('cmp').onclick = () => setCompare(!comparing);
+$('truesc').onclick = () => { $('sz').value = 0; update(); setCompare(false); };
 $('spd').oninput = $('sz').oninput = update; update();
 
 const resize = () => {
@@ -185,18 +229,20 @@ renderer.setAnimationLoop(() => {
   moonOrbit.position.copy(earth.mesh.position);
   moon.position.set(d * Math.cos(m.M), 0, d * Math.sin(m.M));
   // follow the focused body
+  if (!comparing) {
   const f = meshes[focusSel.value];
   f.getWorldPosition(wp);
   camera.position.add(wp.clone().sub(controls.target));
   controls.target.copy(wp);
+  }
   controls.update();
   renderer.render(scene, camera); labels.render(scene, camera);
 });
 focusSel.onchange = () => {
   const f = meshes[focusSel.value];
-  const d = Math.max(f.scale.x * 8, 0.05);
+  const d = focusSel.value === 'Sun' ? 45 : Math.max(f.scale.x * 8, 0.05);
   f.getWorldPosition(wp);
-  camera.position.copy(wp).add(new THREE.Vector3(0, d * 0.4, d));
+  camera.position.copy(wp).add(new THREE.Vector3(0, d * (focusSel.value === 'Sun' ? 0.55 : 0.4), d));
   controls.target.copy(wp);
 };
 </script>

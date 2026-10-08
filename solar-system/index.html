@@ -85,9 +85,9 @@ sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
 scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, sizeAttenuation: false })));
 
 const sphere = new THREE.SphereGeometry(1, 48, 24);
-// distinct orbit colors; each label takes its orbit's color
-const ORBIT = { Mercury: 0xff9f40, Venus: 0xffe14d, Earth: 0x3fa9ff, Mars: 0xff4d4d, Jupiter: 0xc77dff,
-  Saturn: 0x7dff8a, Uranus: 0x4dffe1, Neptune: 0x6b7bff, Pluto: 0xff6bd5, Moon: 0xffffff };
+// orbit colors follow each body's own color, kept distinct; each label takes its orbit's color
+const ORBIT = { Mercury: 0x9a9a9a, Venus: 0xffc94d, Earth: 0x3fa9ff, Mars: 0xff5a36, Jupiter: 0xe8964a,
+  Saturn: 0xefe2a8, Uranus: 0x7fe8f0, Neptune: 0x4a5cff, Pluto: 0xe0b8a8, Moon: 0xffffff };
 const lineMats = [];
 const orbitLine = (pts, color) => {
   const m = new LineMaterial({ color, linewidth: 2, transparent: true, opacity: 0.85 });

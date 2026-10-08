@@ -35,7 +35,7 @@
   <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
   <label>Focus</label>
   <select id="focus"></select>
-  <p id="note"><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun is capped at 20×, otherwise it would swallow the inner planets). The Moon's distance is true until the enlarged Earth would swallow it; then it is pushed out to 3 Earth radii.</small></p>
+  <p id="note"><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun is capped at 20×, otherwise it would swallow the inner planets). The Moon's distance is true until the enlarged Earth would swallow it; then it is pushed out to 3 Earth radii. Planet textures by James Hastings-Trew (planetpixelemporium.com).</small></p>
   </div>
 </div>
 <script type="importmap">
@@ -113,7 +113,25 @@ const label = (obj, text, below) => {
   const l = new CSS2DObject(d); l.center.set(0, below ? -0.5 : 1.5); obj.add(l);
 };
 
+// surface maps; each body shows its plain color until (or unless) its texture loads
+const loader = new THREE.TextureLoader();
+const texture = (mat, file, tint = 0xffffff) => loader.load('textures/' + file, t => {
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  mat.map = t; mat.color.set(tint); mat.needsUpdate = true;
+});
+// Saturn's ring: remap UVs so the ring strip texture runs from inner to outer edge
+const ringGeo = new THREE.RingGeometry(1.24, 2.27, 128), rp = ringGeo.attributes.position, ruv = ringGeo.attributes.uv;
+for (let i = 0; i < rp.count; i++) ruv.setXY(i, (Math.hypot(rp.getX(i), rp.getY(i)) - 1.24) / 1.03, 0.5);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0xcdb98a, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false });
+texture(ringMat, 'saturn_ring.png');
+const saturnRing = () => {
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2 - 0.466; // 26.7° axial tilt
+  return ring;
+};
+
 const sun = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({ color: 0xffcc33 }));
+texture(sun.material, 'sun.jpg', 0xffb84d);
 sun.userData.r = 696340 / AU;
 system.add(sun); label(sun, 'Sun');
 
@@ -128,12 +146,9 @@ const bodies = P.map(([name, r, a, e, T, inc, color]) => {
   const line = orbitLine(pts, ORBIT[name]);
   pivot.add(line);
   const mesh = new THREE.Mesh(sphere, new THREE.MeshStandardMaterial({ color, roughness: 1 }));
+  texture(mesh.material, name.toLowerCase() + '.jpg');
   mesh.userData.r = r / AU;
-  if (name === 'Saturn') {
-    const ring = new THREE.Mesh(new THREE.RingGeometry(1.24, 2.27, 64), new THREE.MeshBasicMaterial({ color: 0xcdb98a, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }));
-    ring.rotation.x = Math.PI / 2 - 0.466; // 26.7° axial tilt
-    mesh.add(ring);
-  }
+  if (name === 'Saturn') mesh.add(saturnRing());
   pivot.add(mesh); label(mesh, name);
   const pos = M => { // position on the ellipse for mean anomaly M (Kepler's equation)
     let E = M; for (let i = 0; i < 5; i++) E = M + e * Math.sin(E);
@@ -152,6 +167,7 @@ for (let i = 0; i <= 128; i++) { const t = i / 128 * Math.PI * 2; ring.push(new 
 const moonLine = orbitLine(ring, ORBIT.Moon);
 moonOrbit.add(moonLine);
 const moon = new THREE.Mesh(sphere, new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 1 }));
+texture(moon.material, 'moon.jpg');
 moon.userData = { r: 1737 / AU, d: 384400 / AU };
 moonOrbit.add(moon); label(moon, 'Moon');
 const moonBody = { name: 'Moon', mesh: moon, line: moonLine, T: 27.32 / 365.25, M: 0,
@@ -187,17 +203,12 @@ bodies.forEach(p => meshes[p.name] = p.mesh);
 meshes.Moon = moon;
 
 // size comparison: all bodies side by side at true relative size (1 Earth radius = 0.05 units)
-const saturnRing = () => {
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.24, 2.27, 64), new THREE.MeshBasicMaterial({ color: 0xcdb98a, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }));
-  ring.rotation.x = Math.PI / 2 - 0.466;
-  return ring;
-};
 {
-  const k = 0.05 / 6371, rows = [['Sun', 696340, null], ...P.map(p => [p[0], p[1], p[6]])];
-  rows.splice(4, 0, ['Moon', 1737, 0xaaaaaa]);
+  const k = 0.05 / 6371, rows = [['Sun', 696340], ...P.map(p => [p[0], p[1]])];
+  rows.splice(4, 0, ['Moon', 1737]);
   let x = 0, prevExt = 0;
-  rows.forEach(([name, r, color], i) => {
-    const m = new THREE.Mesh(sphere, name === 'Sun' ? sun.material : new THREE.MeshStandardMaterial({ color, roughness: 1 }));
+  rows.forEach(([name, r], i) => {
+    const m = new THREE.Mesh(sphere, meshes[name].material);
     const ext = name === 'Saturn' ? r * k * 2.27 : r * k;
     if (i) x += prevExt + 0.8 + ext;
     prevExt = ext;

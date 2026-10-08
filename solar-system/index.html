@@ -100,9 +100,9 @@ sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
 scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, sizeAttenuation: false })));
 
 const sphere = new THREE.SphereGeometry(1, 48, 24);
-// orbit colors follow each body's own color, kept distinct; each label takes its orbit's color
-const ORBIT = { Mercury: 0x9a9a9a, Venus: 0xffc94d, Earth: 0x3fa9ff, Mars: 0xff5a36, Jupiter: 0xe8964a,
-  Saturn: 0xefe2a8, Uranus: 0x7fe8f0, Neptune: 0x4a5cff, Pluto: 0xe0b8a8, Moon: 0xffffff };
+// orbit colors spread around the color wheel so every line is easy to tell apart; each label takes its orbit's color
+const ORBIT = { Mercury: 0xb0b0b0, Venus: 0xff9ecf, Earth: 0x34c3ff, Mars: 0xff3b30, Jupiter: 0xff8c1a,
+  Saturn: 0x7ed957, Uranus: 0x5ff5d0, Neptune: 0x4c6bff, Pluto: 0xc77dff, Moon: 0xffffff, Sun: 0xffd60a };
 const lineMats = [];
 const orbitLine = (pts, color) => {
   const m = new LineMaterial({ color, linewidth: 1.25, transparent: true, opacity: 0.85 });
@@ -213,7 +213,7 @@ const GEO_YEARS = { Sun: 1, Mercury: 8, Venus: 8, Mars: 15, Jupiter: 11.86, Satu
 const geo = new THREE.Group();
 geo.visible = false; system.add(geo);
 let geoOn = false;
-const geoBodies = [{ name: 'Sun', color: 0xffcc33 }, ...bodies.filter(b => b !== earth).map(b => ({ name: b.name, color: ORBIT[b.name], body: b }))];
+const geoBodies = [{ name: 'Sun', color: ORBIT.Sun }, ...bodies.filter(b => b !== earth).map(b => ({ name: b.name, color: ORBIT[b.name], body: b }))];
 geoBodies.forEach(g => {
   g.years = GEO_YEARS[g.name];
   g.n = Math.ceil(g.years * (g.name === 'Mercury' ? 300 : g.years > 20 ? 50 : 120)) + 2; // points along the path

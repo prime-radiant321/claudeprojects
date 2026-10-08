@@ -206,28 +206,44 @@ const drawTrail = o => {
   data.needsUpdate = true;
 };
 
-// Earth-centred paths: where each body appeared relative to Earth over the last few years
-// (shows retrograde loops of the outer planets and the looping paths of Mercury and Venus)
-const GEO_YEARS = 4, GN = 800, geo = new THREE.Group();
+// Earth-centred paths: each body's complete path relative to Earth, ending at its current position
+// (shows retrograde loops of the outer planets and the looping patterns of Mercury and Venus).
+// Window: one full orbit for the outer bodies, enough years for the inner patterns to fill in.
+const GEO_YEARS = { Sun: 1, Mercury: 8, Venus: 8, Mars: 15, Jupiter: 11.86, Saturn: 29.46, Uranus: 84.01, Neptune: 164.8, Pluto: 247.9 };
+const geo = new THREE.Group();
 geo.visible = false; system.add(geo);
 let geoOn = false;
 const geoBodies = [{ name: 'Sun', color: 0xffcc33 }, ...bodies.filter(b => b !== earth).map(b => ({ name: b.name, color: ORBIT[b.name], body: b }))];
-geoBodies.forEach(g => { g.line = fadeLine(GN, g.color, 1.5); g.line.visible = true; geo.add(g.line); });
-const earthPast = new Float32Array(GN * 3), gv = new THREE.Vector3();
+geoBodies.forEach(g => {
+  g.years = GEO_YEARS[g.name];
+  g.n = Math.ceil(g.years * (g.name === 'Mercury' ? 300 : g.years > 20 ? 50 : 120)) + 2; // points along the path
+  g.step = g.years / (g.n - 2); // years between cached points
+  g.buf = new Float32Array((g.n - 1) * 3); g.kLast = -Infinity; // ring buffer of cached points
+  g.line = orbitLine(Array.from({ length: g.n }, () => new THREE.Vector3()), g.color);
+  g.line.frustumCulled = false; geo.add(g.line);
+});
+let simT = 0; // simulated years since start
+const gv = new THREE.Vector3(), ge = new THREE.Vector3();
+const relPos = (g, t) => { // body position relative to Earth at simulated time t
+  const ago = simT - t;
+  ge.fromArray(earth.pos(earth.M - Math.PI * 2 * ago / earth.T)).applyMatrix4(earth.mesh.parent.matrixWorld);
+  if (g.body) gv.fromArray(g.body.pos(g.body.M - Math.PI * 2 * ago / g.body.T)).applyMatrix4(g.body.mesh.parent.matrixWorld);
+  else gv.set(0, 0, 0);
+  return gv.sub(ge);
+};
+// points sit on a fixed time grid, so each frame only the newly reached ones are computed
 const drawGeo = () => {
   earth.mesh.getWorldPosition(geo.position);
-  for (let i = 0; i < GN; i++) {
-    gv.fromArray(earth.pos(earth.M - Math.PI * 2 * GEO_YEARS * i / (GN - 1) / earth.T)).applyMatrix4(earth.mesh.parent.matrixWorld);
-    gv.toArray(earthPast, i * 3);
-  }
   for (const g of geoBodies) {
-    const data = g.line.geometry.attributes.instanceStart.data, arr = data.array, b = g.body;
-    for (let i = 0; i < GN; i++) {
-      if (b) gv.fromArray(b.pos(b.M - Math.PI * 2 * GEO_YEARS * i / (GN - 1) / b.T)).applyMatrix4(b.mesh.parent.matrixWorld);
-      else gv.set(0, 0, 0);
-      gv.x -= earthPast[i * 3]; gv.y -= earthPast[i * 3 + 1]; gv.z -= earthPast[i * 3 + 2];
-      if (i < GN - 1) gv.toArray(arr, i * 6);
-      if (i > 0) gv.toArray(arr, (i - 1) * 6 + 3);
+    const m = g.n - 1, kNow = Math.floor(simT / g.step), kStart = kNow - m + 1;
+    for (let k = Math.max(g.kLast + 1, kStart); k <= kNow; k++) relPos(g, k * g.step).toArray(g.buf, ((k % m) + m) % m * 3);
+    g.kLast = kNow;
+    const data = g.line.geometry.attributes.instanceStart.data, arr = data.array;
+    relPos(g, simT).toArray(arr, 0); // head: exact current position
+    for (let i = 1; i < g.n; i++) {
+      const o = (((kNow - i + 1) % m) + m) % m * 3;
+      arr[i * 6 - 3] = g.buf[o]; arr[i * 6 - 2] = g.buf[o + 1]; arr[i * 6 - 1] = g.buf[o + 2];
+      if (i < g.n - 1) { arr[i * 6] = g.buf[o]; arr[i * 6 + 1] = g.buf[o + 1]; arr[i * 6 + 2] = g.buf[o + 2]; }
     }
     data.needsUpdate = true;
   }
@@ -329,6 +345,7 @@ addEventListener('resize', resize); resize();
 const clock = new THREE.Clock(), wp = new THREE.Vector3();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1) * speed;
+  simT += dt;
   for (const o of orbiters) {
     o.M += dt / o.T * Math.PI * 2; // mean anomaly
     o.mesh.position.fromArray(o.pos(o.M));

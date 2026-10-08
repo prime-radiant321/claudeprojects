@@ -104,7 +104,7 @@ const ORBIT = { Mercury: 0x9a9a9a, Venus: 0xffc94d, Earth: 0x3fa9ff, Mars: 0xff5
   Saturn: 0xefe2a8, Uranus: 0x7fe8f0, Neptune: 0x4a5cff, Pluto: 0xe0b8a8, Moon: 0xffffff };
 const lineMats = [];
 const orbitLine = (pts, color) => {
-  const m = new LineMaterial({ color, linewidth: 2, transparent: true, opacity: 0.85 });
+  const m = new LineMaterial({ color, linewidth: 1.25, transparent: true, opacity: 0.85 });
   lineMats.push(m);
   return new Line2(new LineGeometry().setPositions(pts.flatMap(v => [v.x, v.y, v.z])), m);
 };
@@ -187,7 +187,7 @@ orbiters.forEach(o => {
   const col = new THREE.Color(ORBIT[o.name]), cols = [];
   for (let i = 0; i < TN; i++) { const f = (1 - i / (TN - 1)) ** 1.5; cols.push(col.r * f, col.g * f, col.b * f); }
   g.setColors(cols);
-  const m = new LineMaterial({ vertexColors: true, linewidth: 3, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+  const m = new LineMaterial({ vertexColors: true, linewidth: 2, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
   lineMats.push(m);
   o.trail = new Line2(g, m);
   o.trail.frustumCulled = false; o.trail.visible = false;

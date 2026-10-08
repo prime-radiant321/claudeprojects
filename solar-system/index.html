@@ -30,6 +30,7 @@
   <input id="sz" type="range" min="0" max="3.3" step="0.01" value="3">
   <div class="row"><button id="truesc">True scale (1×)</button><button id="cmp">Compare sizes</button></div>
   <div class="row"><button id="trail">Orbit lines: full</button></div>
+  <div class="row"><button id="geo">Paths seen from Earth: off</button></div>
   <p id="cmpnote" hidden><small>Size comparison: every body is drawn at its true size relative to the others, lined up side by side. Distances are ignored here. The Sun is 109 Earths wide.</small></p>
   <label>Zoom <small>(scroll, pinch, or +/− keys)</small></label>
   <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
@@ -182,17 +183,18 @@ const moonBody = { name: 'Moon', mesh: moon, line: moonLine, T: 27.32 / 365.25, 
 // trails: the path each body covered in the last few seconds (at least 1/10 of its orbit), fading out (additive blending, so black = invisible)
 const TRAIL_SEC = 2, TN = 96, orbiters = [...bodies, moonBody];
 let trails = false;
-orbiters.forEach(o => {
-  const g = new LineGeometry().setPositions(new Array(TN * 3).fill(0));
-  const col = new THREE.Color(ORBIT[o.name]), cols = [];
-  for (let i = 0; i < TN; i++) { const f = (1 - i / (TN - 1)) ** 1.5; cols.push(col.r * f, col.g * f, col.b * f); }
+const fadeLine = (n, color, linewidth) => { // n-point line, bright at the head, fading to nothing at the tail
+  const g = new LineGeometry().setPositions(new Array(n * 3).fill(0));
+  const col = new THREE.Color(color), cols = [];
+  for (let i = 0; i < n; i++) { const f = (1 - i / (n - 1)) ** 1.5; cols.push(col.r * f, col.g * f, col.b * f); }
   g.setColors(cols);
-  const m = new LineMaterial({ vertexColors: true, linewidth: 2, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+  const m = new LineMaterial({ vertexColors: true, linewidth, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
   lineMats.push(m);
-  o.trail = new Line2(g, m);
-  o.trail.frustumCulled = false; o.trail.visible = false;
-  o.line.parent.add(o.trail);
-});
+  const l = new Line2(g, m);
+  l.frustumCulled = false; l.visible = false;
+  return l;
+};
+orbiters.forEach(o => { o.trail = fadeLine(TN, ORBIT[o.name], 2); o.line.parent.add(o.trail); });
 const drawTrail = o => {
   const data = o.trail.geometry.attributes.instanceStart.data, arr = data.array;
   const span = Math.min(Math.PI * 1.9, Math.max(Math.PI / 5, Math.PI * 2 / o.T * speed * TRAIL_SEC));
@@ -203,6 +205,37 @@ const drawTrail = o => {
   }
   data.needsUpdate = true;
 };
+
+// Earth-centred paths: where each body appeared relative to Earth over the last few years
+// (shows retrograde loops of the outer planets and the looping paths of Mercury and Venus)
+const GEO_YEARS = 4, GN = 800, geo = new THREE.Group();
+geo.visible = false; system.add(geo);
+let geoOn = false;
+const geoBodies = [{ name: 'Sun', color: 0xffcc33 }, ...bodies.filter(b => b !== earth).map(b => ({ name: b.name, color: ORBIT[b.name], body: b }))];
+geoBodies.forEach(g => { g.line = fadeLine(GN, g.color, 1.5); g.line.visible = true; geo.add(g.line); });
+const earthPast = new Float32Array(GN * 3), gv = new THREE.Vector3();
+const drawGeo = () => {
+  earth.mesh.getWorldPosition(geo.position);
+  for (let i = 0; i < GN; i++) {
+    gv.fromArray(earth.pos(earth.M - Math.PI * 2 * GEO_YEARS * i / (GN - 1) / earth.T)).applyMatrix4(earth.mesh.parent.matrixWorld);
+    gv.toArray(earthPast, i * 3);
+  }
+  for (const g of geoBodies) {
+    const data = g.line.geometry.attributes.instanceStart.data, arr = data.array, b = g.body;
+    for (let i = 0; i < GN; i++) {
+      if (b) gv.fromArray(b.pos(b.M - Math.PI * 2 * GEO_YEARS * i / (GN - 1) / b.T)).applyMatrix4(b.mesh.parent.matrixWorld);
+      else gv.set(0, 0, 0);
+      gv.x -= earthPast[i * 3]; gv.y -= earthPast[i * 3 + 1]; gv.z -= earthPast[i * 3 + 2];
+      if (i < GN - 1) gv.toArray(arr, i * 6);
+      if (i > 0) gv.toArray(arr, (i - 1) * 6 + 3);
+    }
+    data.needsUpdate = true;
+  }
+};
+const refreshLines = () => orbiters.forEach(o => {
+  const hide = geoOn && o !== moonBody;
+  o.line.visible = !hide && !trails; o.trail.visible = !hide && trails;
+});
 
 const meshes = { Sun: sun };
 bodies.forEach(p => meshes[p.name] = p.mesh);
@@ -268,9 +301,20 @@ $('tog').onclick = () => {
 };
 $('trail').onclick = () => {
   trails = !trails;
-  orbiters.forEach(o => { o.line.visible = !trails; o.trail.visible = trails; });
+  refreshLines();
   $('trail').textContent = 'Orbit lines: ' + (trails ? 'trails' : 'full');
 };
+const setGeo = on => {
+  geoOn = on; geo.visible = on; refreshLines();
+  $('geo').textContent = 'Paths seen from Earth: ' + (on ? 'on' : 'off');
+  if (on) {
+    if (comparing) setCompare(false);
+    focusSel.value = 'Earth';
+    earth.mesh.getWorldPosition(wp);
+    controls.target.copy(wp); camera.position.copy(wp).add(new THREE.Vector3(0, 14, 18));
+  }
+};
+$('geo').onclick = () => setGeo(!geoOn);
 $('cmp').onclick = () => setCompare(!comparing);
 $('truesc').onclick = () => { $('sz').value = 0; update(); setCompare(false); };
 $('spd').oninput = $('sz').oninput = update; update();
@@ -289,9 +333,10 @@ renderer.setAnimationLoop(() => {
     o.M += dt / o.T * Math.PI * 2; // mean anomaly
     o.mesh.position.fromArray(o.pos(o.M));
     o.mesh.rotation.y -= dt * o.spin; // same sense as the orbits, so positive periods are prograde
-    if (trails) drawTrail(o);
+    if (trails && !geoOn) drawTrail(o);
   }
   moonOrbit.position.copy(earth.mesh.position);
+  if (geoOn) drawGeo();
   sun.rotation.y -= dt * Math.PI * 2 * HOURS_PER_YEAR / 609.1; // 25.4-day equatorial rotation
   if (comparing) compare.children.forEach(m => { m.rotation.y = m.userData.src.rotation.y; });
   // follow the focused body
@@ -305,6 +350,7 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera); labels.render(scene, camera);
 });
 focusSel.onchange = () => {
+  if (geoOn && focusSel.value !== 'Earth') setGeo(false);
   const f = meshes[focusSel.value];
   const d = focusSel.value === 'Sun' ? 45 : Math.max(f.scale.x * 8, 0.05);
   f.getWorldPosition(wp);

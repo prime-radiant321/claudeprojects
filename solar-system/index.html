@@ -29,6 +29,7 @@
   <label>Body size: <span id="szv"></span>× true size</label>
   <input id="sz" type="range" min="0" max="3.3" step="0.01" value="3">
   <div class="row"><button id="truesc">True scale (1×)</button><button id="cmp">Compare sizes</button></div>
+  <div class="row"><button id="trail">Orbit lines: full</button></div>
   <p id="cmpnote" hidden><small>Size comparison: every body is drawn at its true size relative to the others, lined up side by side. Distances are ignored here. The Sun is 109 Earths wide.</small></p>
   <label>Zoom <small>(scroll, pinch, or +/− keys)</small></label>
   <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
@@ -124,7 +125,8 @@ const bodies = P.map(([name, r, a, e, T, inc, color]) => {
   const b = (1 - e * e) ** 0.5 * a, c = a * e; // ellipse, Sun at focus
   const pts = [];
   for (let i = 0; i <= 256; i++) { const t = i / 256 * Math.PI * 2; pts.push(new THREE.Vector3(a * Math.cos(t) - c, 0, b * Math.sin(t))); }
-  pivot.add(orbitLine(pts, ORBIT[name]));
+  const line = orbitLine(pts, ORBIT[name]);
+  pivot.add(line);
   const mesh = new THREE.Mesh(sphere, new THREE.MeshStandardMaterial({ color, roughness: 1 }));
   mesh.userData.r = r / AU;
   if (name === 'Saturn') {
@@ -133,7 +135,11 @@ const bodies = P.map(([name, r, a, e, T, inc, color]) => {
     mesh.add(ring);
   }
   pivot.add(mesh); label(mesh, name);
-  return { name, mesh, a, b, c, e, T, M: Math.random() * Math.PI * 2 };
+  const pos = M => { // position on the ellipse for mean anomaly M (Kepler's equation)
+    let E = M; for (let i = 0; i < 5; i++) E = M + e * Math.sin(E);
+    return [a * Math.cos(E) - c, 0, b * Math.sin(E)];
+  };
+  return { name, mesh, line, pos, T, M: Math.random() * Math.PI * 2 };
 });
 
 // Moon: orbits Earth at 384,400 km (60.3 Earth radii), 27.3 days, 5.1° inclination
@@ -146,8 +152,35 @@ for (let i = 0; i <= 128; i++) { const t = i / 128 * Math.PI * 2; ring.push(new 
 const moonLine = orbitLine(ring, ORBIT.Moon);
 moonOrbit.add(moonLine);
 const moon = new THREE.Mesh(sphere, new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 1 }));
-moon.userData = { r: 1737 / AU, d: 384400 / AU, T: 27.32 / 365.25, M: 0 };
+moon.userData = { r: 1737 / AU, d: 384400 / AU };
 moonOrbit.add(moon); label(moon, 'Moon');
+const moonBody = { name: 'Moon', mesh: moon, line: moonLine, T: 27.32 / 365.25, M: 0,
+  pos: M => { const d = moonLine.scale.x; return [d * Math.cos(M), 0, d * Math.sin(M)]; } };
+
+// trails: the path each body covered in the last few seconds (at least 1/10 of its orbit), fading out (additive blending, so black = invisible)
+const TRAIL_SEC = 2, TN = 96, orbiters = [...bodies, moonBody];
+let trails = false;
+orbiters.forEach(o => {
+  const g = new LineGeometry().setPositions(new Array(TN * 3).fill(0));
+  const col = new THREE.Color(ORBIT[o.name]), cols = [];
+  for (let i = 0; i < TN; i++) { const f = (1 - i / (TN - 1)) ** 1.5; cols.push(col.r * f, col.g * f, col.b * f); }
+  g.setColors(cols);
+  const m = new LineMaterial({ vertexColors: true, linewidth: 3, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+  lineMats.push(m);
+  o.trail = new Line2(g, m);
+  o.trail.frustumCulled = false; o.trail.visible = false;
+  o.line.parent.add(o.trail);
+});
+const drawTrail = o => {
+  const data = o.trail.geometry.attributes.instanceStart.data, arr = data.array;
+  const span = Math.min(Math.PI * 1.9, Math.max(Math.PI / 5, Math.PI * 2 / o.T * speed * TRAIL_SEC));
+  let prev = o.pos(o.M);
+  for (let i = 1; i < TN; i++) {
+    const cur = o.pos(o.M - span * i / (TN - 1));
+    arr.set(prev, (i - 1) * 6); arr.set(cur, (i - 1) * 6 + 3); prev = cur;
+  }
+  data.needsUpdate = true;
+};
 
 const meshes = { Sun: sun };
 bodies.forEach(p => meshes[p.name] = p.mesh);
@@ -214,6 +247,11 @@ $('tog').onclick = () => {
   p.hidden = !open; $('tog').textContent = open ? '−' : '+';
   $('tog').title = open ? 'Hide menu' : 'Show menu'; $('tog').setAttribute('aria-expanded', open);
 };
+$('trail').onclick = () => {
+  trails = !trails;
+  orbiters.forEach(o => { o.line.visible = !trails; o.trail.visible = trails; });
+  $('trail').textContent = 'Orbit lines: ' + (trails ? 'trails' : 'full');
+};
 $('cmp').onclick = () => setCompare(!comparing);
 $('truesc').onclick = () => { $('sz').value = 0; update(); setCompare(false); };
 $('spd').oninput = $('sz').oninput = update; update();
@@ -228,16 +266,13 @@ addEventListener('resize', resize); resize();
 const clock = new THREE.Clock(), wp = new THREE.Vector3();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1) * speed;
-  for (const p of bodies) {
-    p.M += dt / p.T * Math.PI * 2; // mean anomaly
-    let E = p.M; for (let i = 0; i < 5; i++) E = p.M + p.e * Math.sin(E); // Kepler's equation
-    p.mesh.position.set(p.a * Math.cos(E) - p.c, 0, p.b * Math.sin(E));
-    p.mesh.rotation.y += dt * 50;
+  for (const o of orbiters) {
+    o.M += dt / o.T * Math.PI * 2; // mean anomaly
+    o.mesh.position.fromArray(o.pos(o.M));
+    o.mesh.rotation.y += dt * 50;
+    if (trails) drawTrail(o);
   }
-  const m = moon.userData, d = moonLine.scale.x;
-  m.M += dt / m.T * Math.PI * 2;
   moonOrbit.position.copy(earth.mesh.position);
-  moon.position.set(d * Math.cos(m.M), 0, d * Math.sin(m.M));
   // follow the focused body
   if (!comparing) {
   const f = meshes[focusSel.value];

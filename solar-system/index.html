@@ -10,6 +10,8 @@
   #ui label { display: block; margin: 6px 0 2px; }
   #ui input, #ui select { width: 100%; }
   .lbl { color: #fff; font-size: 11px; text-shadow: 0 0 3px #000; pointer-events: none; }
+  .zoom { display: flex; gap: 6px; }
+  .zoom button { flex: 1; font-size: 18px; padding: 2px 0; cursor: pointer; }
   small { color: #999; }
 </style>
 </head>
@@ -20,6 +22,8 @@
   <input id="spd" type="range" min="-3" max="1.5" step="0.01" value="-1">
   <label>Body size: <span id="szv"></span>× true size</label>
   <input id="sz" type="range" min="0" max="3.3" step="0.01" value="3">
+  <label>Zoom <small>(scroll, pinch, or +/− keys)</small></label>
+  <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
   <label>Focus</label>
   <select id="focus"></select>
   <p><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun is capped at 20×, otherwise it would swallow the inner planets).</small></p>
@@ -60,6 +64,9 @@ const camera = new THREE.PerspectiveCamera(50, 1, 1e-6, 1e4);
 camera.position.set(0, 25, 45);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.zoomSpeed = 2;
+controls.minDistance = 1e-5;
+controls.maxDistance = 300;
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 scene.add(new THREE.PointLight(0xffffff, 3, 0, 0));
@@ -114,6 +121,14 @@ const update = () => {
   sun.scale.setScalar(sun.userData.r * Math.min(scale, 20));
   bodies.forEach(p => p.mesh.scale.setScalar(p.mesh.userData.r * scale));
 };
+// zoom by scaling the camera's distance to the target, holding a button repeats
+const zoom = f => { const o = camera.position.clone().sub(controls.target).multiplyScalar(f); if (o.length() > 1e-5 && o.length() < 300) camera.position.copy(controls.target).add(o); };
+let zt;
+const hold = (id, f) => { const b = $(id), stop = () => clearInterval(zt);
+  b.onpointerdown = () => { zoom(f); zt = setInterval(() => zoom(f), 60); };
+  b.onpointerup = b.onpointerleave = stop; };
+hold('zin', 0.85); hold('zout', 1 / 0.85);
+addEventListener('keydown', e => { if (e.key === '+' || e.key === '=') zoom(0.7); if (e.key === '-') zoom(1 / 0.7); });
 $('spd').oninput = $('sz').oninput = update; update();
 
 const resize = () => {

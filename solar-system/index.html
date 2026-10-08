@@ -105,8 +105,8 @@ const ORBIT = { Mercury: 0x9a9a9a, Venus: 0xffc94d, Earth: 0x3fa9ff, Mars: 0xff5
   Saturn: 0xefe2a8, Uranus: 0x7fe8f0, Neptune: 0x4a5cff, Pluto: 0xe0b8a8, Moon: 0xffffff };
 // Earth-view path colors: chosen for contrast, not realism. The Sun, Mercury, Venus and Mars
 // crowd together around Earth, so they get the four most separated hues.
-const GEO = { Sun: 0xffe000, Mercury: 0x00e5ff, Venus: 0xff40ff, Mars: 0xff3030,
-  Jupiter: 0xff9a1a, Saturn: 0x5cff5c, Uranus: 0xe0e0e0, Neptune: 0x3d5aff, Pluto: 0xb98cff };
+const GEO = { Sun: 0xffe000, Mercury: 0x00e5ff, Venus: 0x3dff6e, Mars: 0xff3030,
+  Jupiter: 0xff9a1a, Saturn: 0xff8fd0, Uranus: 0xe0e0e0, Neptune: 0x3d5aff, Pluto: 0xb98cff };
 const hex = c => '#' + c.toString(16).padStart(6, '0');
 const labelEls = {};
 const colorLabels = map => Object.entries(labelEls).forEach(([n, els]) => els.forEach(d => { d.style.color = map[n] ? hex(map[n]) : ''; }));

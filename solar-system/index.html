@@ -26,8 +26,8 @@
   <small>(drag to rotate, scroll to zoom, right-drag to pan)</small>
   <label>Speed: 1 sec = <span id="spdv"></span></label>
   <input id="spd" type="range" min="-4.5" max="1.5" step="0.01" value="-1">
-  <label>Body size: <span id="szv"></span>× true size</label>
-  <input id="sz" type="range" min="0" max="3.3" step="0.01" value="3">
+  <label>Body size: <span id="szv"></span></label>
+  <input id="sz" type="range" min="0" max="3.7" step="0.01" value="3">
   <div class="row"><button id="truesc">True scale (1×)</button><button id="cmp">Compare sizes</button></div>
   <div class="row"><button id="trail">Orbit lines: full</button></div>
   <div class="row"><button id="geo">Paths seen from Earth: off</button></div>
@@ -36,7 +36,7 @@
   <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
   <label>Focus</label>
   <select id="focus"></select>
-  <p id="note"><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun is capped at 20×, otherwise it would swallow the inner planets). The Moon's distance is true until the enlarged Earth would swallow it; then it is pushed out to 3 Earth radii. Planet textures by James Hastings-Trew (planetpixelemporium.com).</small></p>
+  <p id="note"><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun stops growing just before it would reach Mercury at its closest, otherwise it would swallow the inner planets; above about 4000× the largest planets can start to overlap). The Moon's distance is true until the enlarged Earth would swallow it; then it is pushed out to 3 Earth radii. Planet textures by James Hastings-Trew (planetpixelemporium.com).</small></p>
   </div>
 </div>
 <script type="importmap">
@@ -294,8 +294,11 @@ let speed, scale;
 const update = () => {
   speed = 10 ** +$('spd').value; const h = speed * HOURS_PER_YEAR;
   $('spdv').textContent = h < 48 ? h.toPrecision(2) + ' hours' : h < 24 * 730 ? (h / 24).toPrecision(3) + ' days' : speed.toPrecision(2) + ' years';
-  scale = 10 ** +$('sz').value; $('szv').textContent = Math.round(scale);
-  sun.scale.setScalar(sun.userData.r * Math.min(scale, 20));
+  scale = 10 ** +$('sz').value;
+  // the Sun may grow until it nearly touches Mercury at perihelion (0.307 AU)
+  const mercuryR = bodies[0].mesh.userData.r * scale, sunScale = Math.min(scale, (0.29 - mercuryR) / sun.userData.r);
+  $('szv').textContent = Math.round(scale) + '× true size' + (sunScale < scale ? ` (Sun ${Math.round(sunScale)}×)` : '');
+  sun.scale.setScalar(sun.userData.r * sunScale);
   bodies.forEach(p => p.mesh.scale.setScalar(p.mesh.userData.r * scale));
   moon.scale.setScalar(moon.userData.r * scale);
   moonLine.scale.setScalar(Math.max(moon.userData.d, earth.mesh.scale.x * 3)); // true distance, or clear of enlarged Earth

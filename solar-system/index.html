@@ -37,6 +37,9 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 const AU = 1.496e8; // km
@@ -82,8 +85,18 @@ sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
 scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, sizeAttenuation: false })));
 
 const sphere = new THREE.SphereGeometry(1, 48, 24);
+// distinct orbit colors; each label takes its orbit's color
+const ORBIT = { Mercury: 0xff9f40, Venus: 0xffe14d, Earth: 0x3fa9ff, Mars: 0xff4d4d, Jupiter: 0xc77dff,
+  Saturn: 0x7dff8a, Uranus: 0x4dffe1, Neptune: 0x6b7bff, Pluto: 0xff6bd5, Moon: 0xffffff };
+const lineMats = [];
+const orbitLine = (pts, color) => {
+  const m = new LineMaterial({ color, linewidth: 2, transparent: true, opacity: 0.85 });
+  lineMats.push(m);
+  return new Line2(new LineGeometry().setPositions(pts.flatMap(v => [v.x, v.y, v.z])), m);
+};
 const label = (obj, text) => {
   const d = document.createElement('div'); d.className = 'lbl'; d.textContent = text;
+  if (ORBIT[text]) d.style.color = '#' + ORBIT[text].toString(16).padStart(6, '0');
   const l = new CSS2DObject(d); l.center.set(0, 1.5); obj.add(l);
 };
 
@@ -99,7 +112,7 @@ const bodies = P.map(([name, r, a, e, T, inc, color]) => {
   const b = (1 - e * e) ** 0.5 * a, c = a * e; // ellipse, Sun at focus
   const pts = [];
   for (let i = 0; i <= 256; i++) { const t = i / 256 * Math.PI * 2; pts.push(new THREE.Vector3(a * Math.cos(t) - c, 0, b * Math.sin(t))); }
-  pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.35 })));
+  pivot.add(orbitLine(pts, ORBIT[name]));
   const mesh = new THREE.Mesh(sphere, new THREE.MeshStandardMaterial({ color, roughness: 1 }));
   mesh.userData.r = r / AU;
   if (name === 'Saturn') {
@@ -118,7 +131,7 @@ moonOrbit.rotation.x = THREE.MathUtils.degToRad(5.14);
 earth.mesh.parent.add(moonOrbit);
 const ring = [];
 for (let i = 0; i <= 128; i++) { const t = i / 128 * Math.PI * 2; ring.push(new THREE.Vector3(Math.cos(t), 0, Math.sin(t))); }
-const moonLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), new THREE.LineBasicMaterial({ color: 0x999999, transparent: true, opacity: 0.35 }));
+const moonLine = orbitLine(ring, ORBIT.Moon);
 moonOrbit.add(moonLine);
 const moon = new THREE.Mesh(sphere, new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 1 }));
 moon.userData = { r: 1737 / AU, d: 384400 / AU, T: 27.32 / 365.25, M: 0 };
@@ -153,6 +166,7 @@ $('spd').oninput = $('sz').oninput = update; update();
 
 const resize = () => {
   renderer.setSize(innerWidth, innerHeight); labels.setSize(innerWidth, innerHeight);
+  lineMats.forEach(m => m.resolution.set(innerWidth, innerHeight));
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 };
 addEventListener('resize', resize); resize();

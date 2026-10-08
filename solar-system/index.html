@@ -14,12 +14,16 @@
   .zoom button { flex: 1; font-size: 18px; padding: 2px 0; cursor: pointer; }
   .row { display: flex; gap: 6px; margin-top: 8px; }
   .row button { flex: 1; padding: 4px 0; cursor: pointer; }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  #tog { width: 26px; height: 22px; padding: 0; cursor: pointer; font-size: 16px; line-height: 1; }
   small { color: #999; }
 </style>
 </head>
 <body>
 <div id="ui">
-  <b>Solar System</b> <small>(drag to rotate, scroll to zoom, right-drag to pan)</small>
+  <div class="head"><b>Solar System</b><button id="tog" aria-expanded="true" aria-controls="panel" title="Hide menu">−</button></div>
+  <div id="panel">
+  <small>(drag to rotate, scroll to zoom, right-drag to pan)</small>
   <label>Speed: <span id="spdv"></span> Earth-years / sec</label>
   <input id="spd" type="range" min="-3" max="1.5" step="0.01" value="-1">
   <label>Body size: <span id="szv"></span>× true size</label>
@@ -31,6 +35,7 @@
   <label>Focus</label>
   <select id="focus"></select>
   <p id="note"><small>Distances are always to true scale (1 AU = 1 unit), with real periods and orbital inclinations. Bodies at true size are sub-pixel specks, so enlarge them with the slider (the Sun is capped at 20×, otherwise it would swallow the inner planets). The Moon's distance is true until the enlarged Earth would swallow it; then it is pushed out to 3 Earth radii.</small></p>
+  </div>
 </div>
 <script type="importmap">
 { "imports": {
@@ -203,6 +208,11 @@ const setCompare = on => {
     const [a, b] = compare.userData.span, cx = (a + b) / 2 - (b - a) * 0.1; // nudge right of the panel
     controls.target.set(cx, 0, 0); camera.position.set(cx, (b - a) * 0.15, (b - a) * 0.9);
   } else focusSel.onchange();
+};
+$('tog').onclick = () => {
+  const p = $('panel'), open = p.hidden;
+  p.hidden = !open; $('tog').textContent = open ? '−' : '+';
+  $('tog').title = open ? 'Hide menu' : 'Show menu'; $('tog').setAttribute('aria-expanded', open);
 };
 $('cmp').onclick = () => setCompare(!comparing);
 $('truesc').onclick = () => { $('sz').value = 0; update(); setCompare(false); };

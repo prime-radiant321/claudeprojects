@@ -1,0 +1,16 @@
+{
+  "name": "Chess with Claude",
+  "short_name": "Chess",
+  "description": "Play chess against a built-in engine and learn openings move by move.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#E5E9E1",
+  "theme_color": "#2B5A41",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

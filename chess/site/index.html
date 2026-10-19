@@ -1,0 +1,3521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Chess with Claude</title>
+<meta name="description" content="Play chess against a built-in engine from 1000 to 2100 Elo, and learn eight openings move by move with explore and practice modes.">
+<meta name="theme-color" content="#E5E9E1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101512" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chess">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="fonts.css">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<style>
+/* Layout: a club table. The board holds the left column between the two players' clock strips;
+   Claude's table talk, the scoresheet and the game setup stack on the right, and below the board on phones. */
+:root {
+  --bg: #E5E9E1;
+  --surface: #F4F6F1;
+  --surface-2: #EBEEE6;
+  --ink: #18201B;
+  --muted: #58665D;
+  --line: #C6CEC3;
+  --accent: #2B5A41;
+  --accent-ink: #F4F6F1;
+  --danger: #A23A28;
+  --sq-light: #ECE6C9;
+  --sq-dark: #6C9360;
+  --coord-on-light: #5C8350;
+  --coord-on-dark: #ECE6C9;
+  --mark: rgba(236, 196, 52, 0.5);
+  --select: rgba(236, 196, 52, 0.78);
+  --dot: rgba(18, 32, 22, 0.26);
+  --check: rgba(214, 64, 40, 0.9);
+  --piece-light: #FCFBF6;
+  --piece-dark: #1C1E1B;
+  --piece-line: #1C1E1B;
+  --piece-dark-line: transparent;
+  --shadow: rgba(16, 28, 20, 0.28);
+  --scrim: rgba(229, 233, 225, 0.62);
+  --arrow-main: rgba(24, 86, 168, 0.8);
+  --arrow-alt: rgba(24, 86, 168, 0.45);
+  --arrow-hot: rgba(214, 112, 14, 0.92);
+  --arrow-main-solid: #1D5AAB;
+  --arrow-alt-solid: #6E8CB8;
+  --arrow-hot-solid: #D6700E;
+  --badge-ink: #FFFFFF;
+
+  --font-display: "Bodoni Moda", "Bodoni 72", Didot, Georgia, serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-pieces: "Noto Sans Symbols 2", "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101512;
+    --surface: #18201B;
+    --surface-2: #1F2822;
+    --ink: #E2E8E0;
+    --muted: #93A197;
+    --line: #2B362F;
+    --accent: #8CC4A0;
+    --accent-ink: #0E1411;
+    --danger: #E58470;
+    --sq-light: #D2CCAE;
+    --sq-dark: #557A4A;
+    --coord-on-light: #4D6F43;
+    --coord-on-dark: #D2CCAE;
+    --mark: rgba(232, 188, 40, 0.48);
+    --select: rgba(232, 188, 40, 0.75);
+    --dot: rgba(10, 18, 12, 0.34);
+    --check: rgba(232, 80, 52, 0.92);
+    --shadow: rgba(0, 0, 0, 0.55);
+    --scrim: rgba(16, 21, 18, 0.62);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101512;
+  --surface: #18201B;
+  --surface-2: #1F2822;
+  --ink: #E2E8E0;
+  --muted: #93A197;
+  --line: #2B362F;
+  --accent: #8CC4A0;
+  --accent-ink: #0E1411;
+  --danger: #E58470;
+  --sq-light: #D2CCAE;
+  --sq-dark: #557A4A;
+  --coord-on-light: #4D6F43;
+  --coord-on-dark: #D2CCAE;
+  --mark: rgba(232, 188, 40, 0.48);
+  --select: rgba(232, 188, 40, 0.75);
+  --dot: rgba(10, 18, 12, 0.34);
+  --check: rgba(232, 80, 52, 0.92);
+  --shadow: rgba(0, 0, 0, 0.55);
+  --scrim: rgba(16, 21, 18, 0.62);
+  color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+button { font: inherit; color: inherit; }
+
+.app {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-block: 18px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 14px;
+}
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
+.top h1 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 30px; line-height: 1.1; letter-spacing: -0.01em; text-wrap: balance; }
+.top h1 em { color: var(--accent); }
+.matchup { margin: 0; color: var(--muted); font-size: 14px; }
+
+.table { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; }
+@media (max-width: 900px) { .table { grid-template-columns: minmax(0, 1fr); gap: 18px; } }
+/* Wide screens: the page fills the window, the game column stays put and the menu scrolls on its own. */
+@media (min-width: 901px) {
+  html, body { height: 100%; }
+  body { overflow: hidden; }
+  .app { height: 100%; box-sizing: border-box; padding-block: 14px; grid-template-rows: auto minmax(0, 1fr); }
+  .table { height: 100%; min-height: 0; align-items: stretch; }
+  .table > .board-col { width: min(100%, 760px, var(--fit, 640px)); align-self: start; }
+  .side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; align-content: start; padding: 2px 6px 16px 2px; margin-right: -6px; scrollbar-gutter: stable; }
+}
+
+/* ---------- board column ---------- */
+.board-col { display: grid; gap: 10px; width: min(100%, 640px, max(300px, calc(100svh - 170px))); justify-self: center; }
+.strip { display: flex; align-items: center; gap: 12px; min-height: 42px; min-width: 0; }
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.avatar {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line);
+  font-family: var(--font-pieces); font-size: 23px; line-height: 1; color: var(--ink);
+}
+.avatar i { display: block; font-style: normal; transform: translateY(var(--pc-shift, 0.145em)); }
+.who-text { display: grid; min-width: 0; line-height: 1.2; }
+.who-name { font-weight: 600; }
+.who-meta { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.caps { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.caps-glyphs { font-family: var(--font-pieces); font-size: 17px; letter-spacing: -0.12em; color: var(--ink); white-space: nowrap; overflow: hidden; }
+.clock {
+  margin-left: auto; flex: none;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums;
+  padding: 6px 10px; border-radius: 6px;
+  background: var(--surface); color: var(--muted); border: 1px solid var(--line);
+}
+.clock.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.clock .tag { font-family: var(--font-body); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 1.1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+
+.board-wrap { position: relative; container-type: inline-size; }
+.board {
+  display: grid; grid-template-columns: repeat(8, 1fr);
+  width: 100%; aspect-ratio: 1; max-width: 100%;
+  border-radius: 6px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line), 0 14px 34px -16px var(--shadow);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.sq { position: relative; display: block; border: 0; margin: 0; padding: 0; aspect-ratio: 1; background: var(--sq-light); cursor: default; -webkit-tap-highlight-color: transparent; }
+.sq.dk { background: var(--sq-dark); }
+.sq::before { content: ""; position: absolute; inset: 0; }
+.sq.last::before { background: var(--mark); }
+.sq.sel::before { background: var(--select); }
+.sq.check::before { background: radial-gradient(circle at 50% 52%, var(--check) 0, var(--check) 22%, transparent 72%); }
+.sq.mine { cursor: grab; }
+.sq.tgt { cursor: pointer; }
+.sq:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 2; }
+.coord { position: absolute; font: 700 max(9px, 1.55cqw)/1 var(--font-body); color: var(--coord-on-light); pointer-events: none; }
+.sq.dk .coord { color: var(--coord-on-dark); }
+.coord.file { right: 0.5cqw; bottom: 0.45cqw; }
+.coord.rank { left: 0.5cqw; top: 0.5cqw; }
+.dot { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.sq.tgt .dot::after { content: ""; width: 30%; height: 30%; border-radius: 50%; background: var(--dot); }
+.sq.tgt.cap .dot::after { width: 86%; height: 86%; background: transparent; box-shadow: inset 0 0 0 0.85cqw var(--dot); }
+
+.pc {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-pieces); font-size: 9.7cqw; line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0.22cqw 0.18cqw var(--shadow));
+}
+.pc i { grid-area: 1 / 1; font-style: normal; transform: translateY(var(--pc-shift, 0.145em)); }
+.pc .f, .ghost .f { -webkit-background-clip: text; background-clip: text; }
+.pc.w .f { color: var(--piece-light); background-image: var(--piece-light-grad, none); }
+.pc.w .o { color: var(--piece-line); }
+.pc.b .f { color: var(--piece-dark); background-image: var(--piece-dark-grad, none); }
+.pc.b .o { color: var(--piece-dark-line); }
+.pc.lifted { opacity: 0.3; }
+.ghost { position: fixed; z-index: 50; left: 0; top: 0; pointer-events: none; transform: translate(-50%, -55%); display: grid; place-items: center; font-family: var(--font-pieces); line-height: 1; filter: drop-shadow(0 6px 6px var(--shadow)); }
+.ghost i { grid-area: 1 / 1; font-style: normal; transform: translateY(var(--pc-shift, 0.145em)); }
+.ghost.w .f { color: var(--piece-light); background-image: var(--piece-light-grad, none); }
+.ghost.w .o { color: var(--piece-line); }
+.ghost.b .f { color: var(--piece-dark); background-image: var(--piece-dark-grad, none); }
+.ghost.b .o { color: var(--piece-dark-line); }
+
+.overlay { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: var(--scrim); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); border-radius: 6px; z-index: 5; }
+.panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 18px 40px -18px var(--shadow);
+  padding: 20px 22px; display: grid; gap: 12px; justify-items: center; text-align: center; max-width: 100%;
+}
+.panel h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 32px; line-height: 1.1; text-wrap: balance; }
+.panel p { margin: 0; color: var(--muted); max-width: 32ch; }
+.score { font-family: var(--font-mono); font-size: 15px; letter-spacing: 0.06em; color: var(--ink); }
+.promo-row { display: flex; gap: 8px; }
+.promo-btn {
+  width: min(16cqw, 76px); aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--sq-light); cursor: pointer; position: relative; container-type: inline-size;
+}
+.promo-btn:nth-child(even) { background: var(--sq-dark); }
+.promo-btn .pc { font-size: 78cqw; }
+.promo-btn:hover, .promo-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+/* ---------- side column ---------- */
+.side { display: grid; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
+.eyebrow { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+.talk { padding: 16px 18px; display: grid; gap: 10px; }
+.talk-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.talk-when { color: var(--muted); font-size: 13px; font-family: var(--font-mono); }
+.bubble { margin: 0; font-family: var(--font-display); font-style: italic; font-size: 20px; line-height: 1.35; text-wrap: pretty; overflow-wrap: anywhere; }
+.bubble::before { content: "\201C"; }
+.bubble::after { content: "\201D"; }
+.talk-note { margin: 0; color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.talk-note.warn { color: var(--danger); }
+.talk-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn {
+  font-weight: 600; font-size: 14px; line-height: 1.1;
+  padding: 9px 13px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  cursor: pointer; min-height: 38px;
+}
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--danger); }
+.btn.armed { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.actions .btn { padding-inline: 6px; white-space: nowrap; }
+
+.sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; list-style: none; border-radius: var(--radius) var(--radius) 0 0; }
+.sheet-head::-webkit-details-marker { display: none; }
+.sheet-head:hover { background: var(--surface-2); }
+.sheet-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+details.sheet:not([open]) > .sheet-head { border-bottom: 0; border-radius: var(--radius); }
+.sheet-right { display: flex; align-items: center; gap: 10px; }
+.sheet-head .caret { font-size: 10px; color: var(--muted); transition: transform 0.15s; }
+details.sheet[open] > .sheet-head .caret { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .sheet-head .caret { transition: none; } }
+.sheet-scroll { max-height: 264px; overflow-y: auto; }
+.sheet table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sheet th { position: sticky; top: 0; background: var(--surface); text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 7px 12px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+.sheet td { padding: 5px 12px; font-size: 15px; }
+.sheet td.n { width: 3.5ch; padding-right: 0; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+.sheet tbody tr:nth-child(even) { background: var(--surface-2); }
+.sheet td.cur { font-weight: 700; color: var(--accent); }
+.sheet .fig { font-family: var(--font-pieces); font-weight: 400; }
+.sheet .stand-in { text-decoration: underline dotted; text-underline-offset: 3px; }
+.sheet-empty { padding: 14px 16px; margin: 0; color: var(--muted); font-size: 14px; }
+.sheet-foot { padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
+.sheet-foot .score { font-size: 14px; }
+.pgn-out { display: block; width: 100%; min-height: 120px; margin: 0; padding: 10px 16px; border: 0; border-top: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: 12px/1.5 var(--font-mono); resize: vertical; box-sizing: border-box; }
+
+.setup { padding: 0; }
+.setup-sum { display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; list-style: none; border-radius: var(--radius); }
+.setup-sum::-webkit-details-marker { display: none; }
+.setup-sum:hover { background: var(--surface-2); }
+.setup-sum:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.setup-now { margin-left: auto; font-size: 13px; color: var(--muted); text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setup-sum .caret { flex: none; font-size: 10px; color: var(--muted); transition: transform 0.15s; }
+details[open] > .setup-sum .caret { transform: rotate(90deg); }
+details[open] > .setup-sum { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.setup-body { padding: 2px 18px 16px; display: grid; gap: 14px; }
+@media (prefers-reduced-motion: reduce) { .setup-sum .caret { transition: none; } }
+.field { display: grid; gap: 6px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.field legend { padding: 0; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.seg { position: relative; display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { flex: 1; text-align: center; padding: 8px 4px; cursor: pointer; font-size: 14px; font-weight: 500; border-left: 1px solid var(--line); }
+.seg label:first-of-type { border-left: 0; }
+.seg input:checked + label { background: var(--ink); color: var(--bg); }
+.seg input:disabled + label { opacity: 0.4; cursor: not-allowed; }
+.elo { display: grid; gap: 6px; }
+.elo-read { display: flex; align-items: baseline; gap: 6px; }
+.elo-num { font-family: var(--font-display); font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.elo-unit { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.elo-word { margin-left: auto; font-size: 13px; color: var(--muted); }
+.elo input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.elo input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.elo-scale { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.hint { margin: 0; color: var(--muted); font-size: 13px; }
+
+.review { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nav { display: flex; gap: 4px; }
+.nav .btn { min-width: 40px; padding-inline: 8px; font-size: 17px; line-height: 1; }
+.review-label { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.review-label strong { color: var(--ink); font-weight: 600; }
+.review .live-btn { margin-left: auto; }
+.board-wrap.reviewing .board { box-shadow: 0 0 0 3px var(--accent), 0 14px 34px -16px var(--shadow); }
+.sheet .mv { all: unset; cursor: pointer; padding: 2px 5px; margin-left: -5px; border-radius: 4px; }
+.sheet .mv:hover { background: var(--line); }
+.sheet .mv:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sheet td.viewing .mv { background: var(--ink); color: var(--bg); }
+.top-left { display: grid; gap: 2px; min-width: 0; }
+.mode { flex: none; }
+.mode label { padding: 8px 14px; white-space: nowrap; }
+.arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; overflow: visible; }
+.arrows .a line { stroke: var(--arrow-alt); stroke-linecap: round; }
+.arrows .a polygon { fill: var(--arrow-alt); }
+.arrows .a circle { fill: var(--arrow-alt-solid); }
+.arrows .a.main line { stroke: var(--arrow-main); }
+.arrows .a.main polygon { fill: var(--arrow-main); }
+.arrows .a.main circle { fill: var(--arrow-main-solid); }
+.arrows .a.hot line { stroke: var(--arrow-hot); }
+.arrows .a.hot polygon { fill: var(--arrow-hot); }
+.arrows .a.hot circle { fill: var(--arrow-hot-solid); }
+.arrows text { fill: var(--badge-ink); font: 700 0.22px var(--font-body); text-anchor: middle; dominant-baseline: central; }
+.learn { padding: 16px 18px; display: grid; gap: 12px; }
+.learn-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.learn select { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.learn h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 25px; line-height: 1.15; text-wrap: balance; }
+.learn-note { margin: 0; font-size: 15px; text-wrap: pretty; }
+.learn-note strong { font-family: var(--font-mono); font-weight: 500; margin-right: 6px; }
+.learn-ask { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.cands { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cand {
+  display: grid; grid-template-columns: 24px auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.cand:hover, .cand:focus-visible, .cand.hot { border-color: var(--arrow-hot-solid); background: var(--surface-2); }
+.cand:focus-visible { outline: 2px solid var(--arrow-hot-solid); outline-offset: 1px; }
+.cand .num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 700 12px/1 var(--font-body); color: var(--badge-ink); background: var(--arrow-alt-solid); }
+.cand.main .num { background: var(--arrow-main-solid); }
+.cand.hot .num { background: var(--arrow-hot-solid); }
+.cand .san { font-weight: 700; font-size: 16px; white-space: nowrap; }
+.cand .san .fig { font-family: var(--font-pieces); font-weight: 400; }
+.cand .nm { color: var(--muted); font-size: 13px; line-height: 1.3; }
+.cand .tag { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); white-space: nowrap; }
+.cand .lines { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.learn-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.sq.hintsq::before { box-shadow: inset 0 0 0 0.75cqw var(--arrow-hot-solid); }
+.sq.wrong::before { background: var(--check); opacity: 0.55; }
+.playon { display: grid; gap: 10px; padding: 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); }
+.panel .save-note { font-size: 13px; color: var(--muted); }
+.ltree-card { padding: 14px 16px; display: grid; gap: 10px; }
+.ltree-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ltree-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ltree-btns { margin-left: auto; display: flex; gap: 6px; }
+.ltree-btns .btn { padding: 6px 10px; min-height: 32px; font-size: 13px; }
+.ltree-bar { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.ltree-bar span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+.ltree-stats { margin: 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ltree-stats.all { color: var(--accent); font-weight: 700; font-size: 14px; }
+.ltree-body { max-height: 440px; overflow-y: auto; margin-inline: -6px; padding-inline: 6px; }
+.ltree, .ltree ul { list-style: none; margin: 0; padding: 0; }
+.ltree ul { margin-left: 9px; padding-left: 7px; border-left: 1px solid var(--line); }
+.ltree summary { list-style: none; cursor: pointer; }
+.ltree summary::-webkit-details-marker { display: none; }
+.lrow { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; min-width: 0; }
+.lrow:hover { background: var(--surface-2); }
+.lrow .caret { flex: none; width: 12px; font-size: 10px; color: var(--muted); transition: transform 0.15s; }
+details[open] > summary .caret { transform: rotate(90deg); }
+.ltext { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.lrow .lmv { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .lnm { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.lrow .lnm.plain { font-weight: 500; color: var(--muted); font-style: italic; }
+.lrow .lprog { margin-left: auto; flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lrow .lprog.full { color: var(--accent); font-weight: 700; }
+.lrow input[type="checkbox"] { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.lgo { all: unset; flex: 1; min-width: 0; display: block; cursor: pointer; }
+.lgo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.lrow.done .lnm { color: var(--muted); }
+.lrow.target { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
+.lrow.here .lmv { color: var(--accent); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { .lrow .caret, .ltree-bar span { transition: none; } }
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.35; cursor: pointer; }
+.check input { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--accent); cursor: pointer; }
+.check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.practice-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.practice-stats { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.feedback { margin: 0; font-size: 14px; font-weight: 600; }
+.feedback.bad { color: var(--danger); }
+.feedback.good { color: var(--accent); }
+.learn-nav { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.learn-nav .btn { padding-inline: 6px; white-space: nowrap; }
+.coach { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; }
+.coach-text { margin: 0; font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; }
+}
+@media (max-width: 420px) {
+  .top h1 { font-size: 26px; }
+  .actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .clock { padding: 5px 8px; }
+}
+
+/* ---------- board and piece themes (placed last so they win over the light/dark board colours) ---------- */
+:root[data-board="walnut"] {
+  --sq-light: #EBCFA3; --sq-dark: #A6774C; --coord-on-light: #946640; --coord-on-dark: #F2DDBA;
+  --mark: rgba(255, 210, 90, 0.5); --select: rgba(255, 210, 90, 0.78); --dot: rgba(60, 32, 12, 0.3);
+}
+:root[data-board="slate"] {
+  --sq-light: #DFE6ED; --sq-dark: #7990A9; --coord-on-light: #6A819B; --coord-on-dark: #EAF0F5;
+  --mark: rgba(246, 196, 70, 0.55); --select: rgba(246, 196, 70, 0.8); --dot: rgba(20, 34, 56, 0.28);
+}
+/* Coral, Lavender and Teal boards */
+:root[data-board="coral"] {
+  --sq-light: #F4E3D7; --sq-dark: #C9806A; --coord-on-light: #B56E59; --coord-on-dark: #F7EBE2;
+  --mark: rgba(250, 205, 80, 0.55); --select: rgba(250, 205, 80, 0.8); --dot: rgba(70, 28, 18, 0.28);
+}
+:root[data-board="lavender"] {
+  --sq-light: #EAE4F2; --sq-dark: #8D7BB0; --coord-on-light: #7C6AA0; --coord-on-dark: #F1ECF7;
+  --mark: rgba(246, 198, 72, 0.55); --select: rgba(246, 198, 72, 0.8); --dot: rgba(36, 22, 64, 0.28);
+}
+:root[data-board="teal"] {
+  --sq-light: #DDEEEA; --sq-dark: #4F8E85; --coord-on-light: #3F7C73; --coord-on-dark: #E6F3F0;
+  --mark: rgba(246, 200, 76, 0.55); --select: rgba(246, 200, 76, 0.8); --dot: rgba(10, 40, 36, 0.3);
+}
+:root[data-board="ocean"] {
+  --sq-light: #DDE9F7; --sq-dark: #4D7FBA; --coord-on-light: #436FA5; --coord-on-dark: #E8F0FA;
+  --mark: rgba(250, 204, 82, 0.6); --select: rgba(250, 204, 82, 0.85); --dot: rgba(12, 30, 60, 0.3);
+}
+:root[data-board="amber"] {
+  --sq-light: #F6EDCE; --sq-dark: #C8A148; --coord-on-light: #A9852F; --coord-on-dark: #FAF3DD;
+  --mark: rgba(90, 160, 235, 0.42); --select: rgba(90, 160, 235, 0.62); --dot: rgba(60, 40, 6, 0.3);
+}
+:root[data-board="charcoal"] {
+  --sq-light: #DCDCD8; --sq-dark: #74777A; --coord-on-light: #65686B; --coord-on-dark: #E6E6E3;
+  --mark: rgba(246, 198, 72, 0.55); --select: rgba(246, 198, 72, 0.8); --dot: rgba(20, 20, 22, 0.3);
+}
+.look { padding: 0; }
+.swatches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.swatch {
+  display: grid; justify-items: center; gap: 6px; padding: 9px 4px 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+  cursor: pointer; font-size: 13px; font-weight: 500; line-height: 1.2; text-align: center;
+}
+.swatch:hover { background: var(--surface-2); }
+.swatch[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 700; }
+.swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mini { width: 44px; height: 44px; border-radius: 5px; box-shadow: 0 0 0 1px var(--line);
+  background: conic-gradient(var(--b) 0 25%, var(--a) 0 50%, var(--b) 0 75%, var(--a) 0) 0 0 / 22px 22px; }
+</style>
+<script>window.CHESS_STANDALONE = true;</script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="top-left">
+      <h1>Chess <em>with</em> Claude</h1>
+      <p class="matchup" id="matchup">You have White. The built-in engine plays Black.</p>
+    </div>
+    <div class="seg mode" role="radiogroup" aria-label="Mode">
+      <input type="radio" name="mode" id="mode-play" value="play" checked><label for="mode-play">Play</label>
+      <input type="radio" name="mode" id="mode-learn" value="learn"><label for="mode-learn">Learn openings</label>
+    </div>
+  </header>
+
+  <main class="table">
+    <section class="board-col" aria-label="Game">
+      <div class="strip" id="strip-top"></div>
+      <div class="board-wrap">
+        <div class="board" id="board" aria-label="Chessboard"></div>
+        <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
+        <div class="overlay" id="promo" hidden>
+          <div class="panel" role="dialog" aria-label="Choose a piece for promotion">
+            <p class="eyebrow">Promote to</p>
+            <div class="promo-row" id="promo-row"></div>
+            <button class="btn" type="button" id="promo-cancel">Cancel</button>
+          </div>
+        </div>
+        <div class="overlay" id="result" hidden>
+          <div class="panel" role="dialog" aria-labelledby="result-title">
+            <span class="score" id="result-score"></span>
+            <h2 id="result-title"></h2>
+            <p id="result-detail"></p>
+            <p class="save-note" id="result-saved" hidden></p>
+            <div class="talk-actions">
+              <button class="btn primary" type="button" id="result-new">New game</button>
+              <button class="btn" type="button" id="result-close">See the board</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="strip" id="strip-bottom"></div>
+      <div class="review" id="review">
+        <div class="nav" role="group" aria-label="Step through the moves">
+          <button class="btn" type="button" id="nav-first" aria-label="Go to the starting position">«</button>
+          <button class="btn" type="button" id="nav-prev" aria-label="Previous move">‹</button>
+          <button class="btn" type="button" id="nav-next" aria-label="Next move">›</button>
+          <button class="btn" type="button" id="nav-last" aria-label="Go to the current position">»</button>
+        </div>
+        <span class="review-label" id="review-label" aria-live="polite"></span>
+        <button class="btn primary live-btn" type="button" id="nav-live" hidden>Back to game</button>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card learn" id="learn" hidden aria-label="Opening explorer">
+        <div class="learn-head">
+          <p class="eyebrow">Opening explorer</p>
+          <select id="learn-opening" aria-label="Opening"><option value="ruy">Ruy Lopez</option><option value="italian">Italian Game</option><option value="qg">Queen's Gambit</option><option value="london">London System</option><option value="english">English Opening</option><option value="kid">King's Indian Defence</option><option value="kia">King's Indian Attack</option></select>
+        </div>
+        <div class="seg" aria-label="Explorer mode">
+          <input type="radio" name="lmode" id="lmode-explore" value="explore" checked><label for="lmode-explore">Explore</label>
+          <input type="radio" name="lmode" id="lmode-practice" value="practice"><label for="lmode-practice">Practise</label>
+        </div>
+        <div class="seg" id="lside-seg" aria-label="Practise as" hidden>
+          <input type="radio" name="lside" id="lside-white" value="0" checked><label for="lside-white">Play White</label>
+          <input type="radio" name="lside" id="lside-black" value="1"><label for="lside-black">Play Black</label>
+        </div>
+        <div class="learn-nav">
+          <button class="btn" type="button" id="learn-back">Back one move</button>
+          <button class="btn" type="button" id="learn-restart">Restart</button>
+          <button class="btn" type="button" id="learn-flip">Flip</button>
+        </div>
+        <h2 id="learn-name">Ruy Lopez</h2>
+        <p class="learn-note" id="learn-note"></p>
+        <p class="learn-ask" id="learn-ask"></p>
+        <div class="playon" id="playon" hidden>
+          <p class="hint" id="playon-hint"></p>
+          <div class="learn-tools">
+            <button class="btn primary" type="button" id="playon-white">Play on as White</button>
+            <button class="btn" type="button" id="playon-black">Play on as Black</button>
+          </div>
+        </div>
+        <p class="feedback" id="feedback" hidden></p>
+        <div class="practice-bar" id="practice-bar" hidden>
+          <button class="btn" type="button" id="learn-hint">Show a hint</button>
+          <button class="btn" type="button" id="learn-again" hidden>Play this line again</button>
+          <span class="practice-stats" id="practice-stats"></span>
+        </div>
+        <ul class="cands" id="learn-cands"></ul>
+      </section>
+
+      <section class="card ltree-card" id="ltree" hidden aria-label="Lines to practise">
+        <div class="ltree-head">
+          <p class="eyebrow">Lines to practise</p>
+          <span class="ltree-count" id="ltree-count"></span>
+          <div class="ltree-btns">
+            <button class="btn" type="button" id="ltree-any">Any line</button>
+            <button class="btn" type="button" id="ltree-reset">Reset</button>
+          </div>
+        </div>
+        <div class="ltree-bar" aria-hidden="true"><span id="ltree-bar"></span></div>
+        <p class="ltree-stats" id="ltree-stats"></p>
+        <p class="hint" id="ltree-hint"></p>
+        <div class="ltree-body" id="ltree-body"></div>
+      </section>
+
+      <section class="card talk play-only">
+        <div class="talk-head">
+          <p class="eyebrow" id="talk-title">Claude</p>
+          <span class="talk-when" id="talk-when"></span>
+        </div>
+        <p class="bubble" id="talk-bubble" hidden></p>
+        <p class="talk-note" id="talk-note"></p>
+        <div class="talk-actions" id="talk-actions" hidden></div>
+      </section>
+
+      <div class="actions play-only">
+        <button class="btn" type="button" id="btn-undo">Take back</button>
+        <button class="btn" type="button" id="btn-flip">Flip</button>
+        <button class="btn" type="button" id="btn-pgn">Copy PGN</button>
+        <button class="btn danger" type="button" id="btn-resign">Resign</button>
+      </div>
+
+      <details class="card sheet" id="sheet-card" open>
+        <summary class="sheet-head">
+          <span class="eyebrow">Scoresheet</span>
+          <span class="sheet-right"><span class="talk-when" id="sheet-count"></span><span class="caret" aria-hidden="true">▶</span></span>
+        </summary>
+        <div class="sheet-scroll" id="sheet-scroll"></div>
+        <textarea class="pgn-out" id="pgn-out" aria-label="Game in PGN" readonly hidden></textarea>
+      </details>
+
+      <details class="card setup play-only" id="setup">
+        <summary class="setup-sum"><span class="eyebrow">New game</span><span class="setup-now" id="setup-now"></span><span class="caret" aria-hidden="true">▶</span></summary>
+        <div class="setup-body">
+        <fieldset class="field">
+          <legend>You play</legend>
+          <div class="seg">
+            <input type="radio" name="color" id="color-white" value="white" checked><label for="color-white">White</label>
+            <input type="radio" name="color" id="color-black" value="black"><label for="color-black">Black</label>
+            <input type="radio" name="color" id="color-random" value="random"><label for="color-random">Random</label>
+          </div>
+          <label class="check" for="opt-first"><input type="checkbox" id="opt-first"> Let me choose the computer’s first move when I play Black</label>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Opponent</legend>
+          <div class="seg">
+            <input type="radio" name="opponent" id="opp-claude" value="claude"><label for="opp-claude">Claude</label>
+            <input type="radio" name="opponent" id="opp-engine" value="engine" checked><label for="opp-engine">Built-in engine</label>
+          </div>
+          <p class="hint" id="opp-hint">Claude reads the position and picks each move itself. Its moves use your Claude usage.</p>
+        </fieldset>
+        <fieldset class="field" id="pace-field">
+          <legend>Claude's pace</legend>
+          <div class="seg">
+            <input type="radio" name="pace" id="pace-blitz" value="blitz"><label for="pace-blitz">Blitz</label>
+            <input type="radio" name="pace" id="pace-rapid" value="rapid" checked><label for="pace-rapid">Rapid</label>
+            <input type="radio" name="pace" id="pace-classical" value="classical"><label for="pace-classical">Classical</label>
+          </div>
+          <p class="hint">Blitz answers in seconds. Rapid thinks briefly and plays better. Classical thinks longest and plays its best.</p>
+        </fieldset>
+        <fieldset class="field" id="level-field" hidden>
+          <legend>Engine strength</legend>
+          <div class="elo">
+            <div class="elo-read"><span class="elo-num" id="level-out">1500</span><span class="elo-unit">Elo</span><span class="elo-word" id="level-word"></span></div>
+            <input type="range" id="level" name="level" min="1000" max="2100" step="100" value="1500" list="elo-ticks" aria-describedby="level-word">
+            <datalist id="elo-ticks"><option value="1000"></option><option value="1100"></option><option value="1200"></option><option value="1300"></option><option value="1400"></option><option value="1500"></option><option value="1600"></option><option value="1700"></option><option value="1800"></option><option value="1900"></option><option value="2000"></option><option value="2100"></option></datalist>
+            <div class="elo-scale" aria-hidden="true"><span>1000</span><span>1550</span><span>2100</span></div>
+          </div>
+          <p class="hint">Ratings are rough targets. Lower levels search less deeply and make more deliberate mistakes.</p>
+        </fieldset>
+        <p class="hint">Opponent and pace changes apply from the next move. Your colour applies to the next game.</p>
+        <p class="hint" id="history-hint" hidden></p>
+        <button class="btn" type="button" id="btn-export" hidden>Download my games (PGN)</button>
+        <button class="btn primary" type="button" id="btn-new">Start new game</button>
+        </div>
+      </details>
+
+      <details class="card setup" id="coach-card" hidden>
+        <summary class="setup-sum"><span class="eyebrow">Ask Claude</span><span class="setup-now">Explain this position</span><span class="caret" aria-hidden="true">▶</span></summary>
+        <div class="setup-body" id="coach">
+          <div class="learn-tools">
+            <button class="btn" type="button" id="learn-explain">Ask Claude to explain</button>
+            <button class="btn" type="button" id="learn-stop" hidden>Stop</button>
+          </div>
+          <p class="coach-text" id="coach-text" hidden></p>
+          <p class="hint" id="coach-hint">Claude explains the ideas behind this position. Each explanation uses your Claude usage; moving through the tree is free.</p>
+        </div>
+      </details>
+
+      <details class="card look" id="look" aria-label="Board colour">
+        <summary class="setup-sum"><span class="eyebrow">Board colour</span><span class="setup-now" id="look-now"></span><span class="caret" aria-hidden="true">▶</span></summary>
+        <div class="setup-body">
+          <fieldset class="field">
+            <legend class="sr">Board colour</legend>
+            <div class="swatches" id="board-swatches">
+              <button type="button" class="swatch" data-board="green"><span class="mini" style="--a:#ECE6C9;--b:#6C9360" aria-hidden="true"></span>Tournament</button>
+              <button type="button" class="swatch" data-board="walnut"><span class="mini" style="--a:#EBCFA3;--b:#A6774C" aria-hidden="true"></span>Walnut</button>
+              <button type="button" class="swatch" data-board="slate"><span class="mini" style="--a:#DFE6ED;--b:#7990A9" aria-hidden="true"></span>Slate</button>
+              <button type="button" class="swatch" data-board="coral"><span class="mini" style="--a:#F4E3D7;--b:#C9806A" aria-hidden="true"></span>Coral</button>
+              <button type="button" class="swatch" data-board="lavender"><span class="mini" style="--a:#EAE4F2;--b:#8D7BB0" aria-hidden="true"></span>Lavender</button>
+              <button type="button" class="swatch" data-board="teal"><span class="mini" style="--a:#DDEEEA;--b:#4F8E85" aria-hidden="true"></span>Teal</button>
+              <button type="button" class="swatch" data-board="ocean"><span class="mini" style="--a:#DDE9F7;--b:#4D7FBA" aria-hidden="true"></span>Ocean</button>
+              <button type="button" class="swatch" data-board="amber"><span class="mini" style="--a:#F6EDCE;--b:#C8A148" aria-hidden="true"></span>Amber</button>
+              <button type="button" class="swatch" data-board="charcoal"><span class="mini" style="--a:#DCDCD8;--b:#74777A" aria-hidden="true"></span>Charcoal</button>
+            </div>
+          </fieldset>
+        </div>
+      </details>
+    </aside>
+  </main>
+</div>
+<div class="sr" id="live" aria-live="assertive"></div>
+
+<script id="core">
+/* Chess rules + search. 0x88 board: a1 = 0, h1 = 7, a8 = 112. Shared by the page and the engine worker. */
+function createPosition(initialFen) {
+  const P = 1, N = 2, B = 3, R = 4, Q = 5, K = 6, BLACK = 8;
+  const F_CAP = 1, F_EP = 2, F_CASTLE = 4, F_DOUBLE = 8, F_PROMO = 16;
+  const N_OFF = [-33, -31, -18, -14, 14, 18, 31, 33];
+  const B_OFF = [-17, -15, 15, 17];
+  const R_OFF = [-16, -1, 1, 16];
+  const K_OFF = [-17, -16, -15, -1, 1, 15, 16, 17];
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const VALUE = [0, 100, 320, 330, 500, 900, 0];
+  const MATE = 100000;
+
+  const b = new Int8Array(128);
+  const cmask = new Int8Array(128).fill(15);
+  cmask[0] = 13; cmask[7] = 14; cmask[4] = 12;
+  cmask[112] = 7; cmask[119] = 11; cmask[116] = 3;
+  let turn = 0, castle = 0, ep = -1, half = 0, full = 1;
+  const kings = [4, 116];
+  const stack = [];
+
+  const sqName = (s) => 'abcdefgh'[s & 7] + ((s >> 4) + 1);
+  const sqFrom = (n) => (n.charCodeAt(1) - 49) * 16 + (n.charCodeAt(0) - 97);
+  const colorOf = (p) => (p & BLACK ? 1 : 0);
+  const enc = (from, to, flags, promo) => from | (to << 7) | ((promo || 0) << 14) | (flags << 17);
+  const mFrom = (m) => m & 127, mTo = (m) => (m >> 7) & 127, mPromo = (m) => (m >> 14) & 7, mFlags = (m) => m >>> 17;
+
+  function load(f) {
+    const parts = f.trim().split(/\s+/);
+    b.fill(0);
+    let r = 7, c = 0;
+    for (const ch of parts[0]) {
+      if (ch === '/') { r--; c = 0; continue; }
+      if (ch >= '1' && ch <= '8') { c += +ch; continue; }
+      const lower = ch.toLowerCase();
+      const t = 'pnbrqk'.indexOf(lower) + 1;
+      const p = t | (ch === lower ? BLACK : 0);
+      const s = r * 16 + c;
+      b[s] = p;
+      if (t === K) kings[colorOf(p)] = s;
+      c++;
+    }
+    turn = parts[1] === 'b' ? 1 : 0;
+    castle = 0;
+    const cs = parts[2] || '-';
+    if (cs.includes('K')) castle |= 1;
+    if (cs.includes('Q')) castle |= 2;
+    if (cs.includes('k')) castle |= 4;
+    if (cs.includes('q')) castle |= 8;
+    ep = parts[3] && parts[3] !== '-' ? sqFrom(parts[3]) : -1;
+    half = parseInt(parts[4] || '0', 10) || 0;
+    full = parseInt(parts[5] || '1', 10) || 1;
+    stack.length = 0;
+  }
+
+  function boardFen() {
+    let out = '';
+    for (let r = 7; r >= 0; r--) {
+      let empty = 0;
+      for (let c = 0; c < 8; c++) {
+        const p = b[r * 16 + c];
+        if (!p) { empty++; continue; }
+        if (empty) { out += empty; empty = 0; }
+        const ch = ' pnbrqk'[p & 7];
+        out += p & BLACK ? ch : ch.toUpperCase();
+      }
+      if (empty) out += empty;
+      if (r) out += '/';
+    }
+    return out;
+  }
+  function castleStr() {
+    let s = '';
+    if (castle & 1) s += 'K';
+    if (castle & 2) s += 'Q';
+    if (castle & 4) s += 'k';
+    if (castle & 8) s += 'q';
+    return s || '-';
+  }
+  function fen() {
+    return [boardFen(), turn ? 'b' : 'w', castleStr(), ep >= 0 ? sqName(ep) : '-', half, full].join(' ');
+  }
+  // Repetition key: en passant counts only when a capture is actually available.
+  function key() {
+    let e = '-';
+    if (ep >= 0) {
+      const pawn = P | (turn ? BLACK : 0);
+      const from = ep + (turn ? 16 : -16);
+      for (const d of [-1, 1]) {
+        const s = from + d;
+        if (!(s & 0x88) && b[s] === pawn) { e = sqName(ep); break; }
+      }
+    }
+    return boardFen() + ' ' + (turn ? 'b' : 'w') + ' ' + castleStr() + ' ' + e;
+  }
+
+  function attacked(sq, by) {
+    const bb = by ? BLACK : 0;
+    if (by === 0) {
+      if (!((sq - 15) & 0x88) && b[sq - 15] === P) return true;
+      if (!((sq - 17) & 0x88) && b[sq - 17] === P) return true;
+    } else {
+      if (!((sq + 15) & 0x88) && b[sq + 15] === (P | BLACK)) return true;
+      if (!((sq + 17) & 0x88) && b[sq + 17] === (P | BLACK)) return true;
+    }
+    for (const o of N_OFF) { const t = sq + o; if (!(t & 0x88) && b[t] === (N | bb)) return true; }
+    for (const o of K_OFF) { const t = sq + o; if (!(t & 0x88) && b[t] === (K | bb)) return true; }
+    for (const o of B_OFF) {
+      let t = sq + o;
+      while (!(t & 0x88)) {
+        const p = b[t];
+        if (p) { if (p === (B | bb) || p === (Q | bb)) return true; break; }
+        t += o;
+      }
+    }
+    for (const o of R_OFF) {
+      let t = sq + o;
+      while (!(t & 0x88)) {
+        const p = b[t];
+        if (p) { if (p === (R | bb) || p === (Q | bb)) return true; break; }
+        t += o;
+      }
+    }
+    return false;
+  }
+
+  // Every square holding a piece of `by` that attacks `sq`.
+  function attackers(sq, by) {
+    const bb = by ? BLACK : 0, out = [];
+    const pawnFrom = by === 0 ? [sq - 15, sq - 17] : [sq + 15, sq + 17];
+    for (const t of pawnFrom) if (!(t & 0x88) && b[t] === (P | bb)) out.push(t);
+    for (const o of N_OFF) { const t = sq + o; if (!(t & 0x88) && b[t] === (N | bb)) out.push(t); }
+    for (const o of K_OFF) { const t = sq + o; if (!(t & 0x88) && b[t] === (K | bb)) out.push(t); }
+    for (const [offs, a, c] of [[B_OFF, B, Q], [R_OFF, R, Q]]) {
+      for (const o of offs) {
+        let t = sq + o;
+        while (!(t & 0x88)) {
+          const p = b[t];
+          if (p) { if (p === (a | bb) || p === (c | bb)) out.push(t); break; }
+          t += o;
+        }
+      }
+    }
+    return out;
+  }
+
+  const inCheck = (side = turn) => attacked(kings[side], side ^ 1);
+
+  function gen(capsOnly) {
+    const moves = [];
+    const us = turn, them = us ^ 1;
+    const add = (f, t, fl) => moves.push(enc(f, t, fl, 0));
+    const addPromos = (f, t, fl) => {
+      for (const pr of [Q, N, R, B]) moves.push(enc(f, t, fl | F_PROMO, pr));
+    };
+    for (let sq = 0; sq < 128; sq++) {
+      if (sq & 0x88) { sq += 7; continue; }
+      const pc = b[sq];
+      if (!pc || colorOf(pc) !== us) continue;
+      const t = pc & 7;
+      if (t === P) {
+        const dir = us ? -16 : 16, startRank = us ? 6 : 1, promoRank = us ? 0 : 7;
+        const one = sq + dir;
+        if (!(one & 0x88) && !b[one]) {
+          if (one >> 4 === promoRank) addPromos(sq, one, 0);
+          else if (!capsOnly) {
+            add(sq, one, 0);
+            if (sq >> 4 === startRank && !b[one + dir]) add(sq, one + dir, F_DOUBLE);
+          }
+        }
+        for (const d of [dir - 1, dir + 1]) {
+          const ts = sq + d;
+          if (ts & 0x88) continue;
+          const tp = b[ts];
+          if (tp && colorOf(tp) === them) {
+            if (ts >> 4 === promoRank) addPromos(sq, ts, F_CAP);
+            else add(sq, ts, F_CAP);
+          } else if (ts === ep) add(sq, ts, F_CAP | F_EP);
+        }
+      } else if (t === N || t === K) {
+        for (const o of t === N ? N_OFF : K_OFF) {
+          const ts = sq + o;
+          if (ts & 0x88) continue;
+          const tp = b[ts];
+          if (!tp) { if (!capsOnly) add(sq, ts, 0); }
+          else if (colorOf(tp) === them) add(sq, ts, F_CAP);
+        }
+      } else {
+        const offs = t === B ? B_OFF : t === R ? R_OFF : K_OFF;
+        for (const o of offs) {
+          let ts = sq + o;
+          while (!(ts & 0x88)) {
+            const tp = b[ts];
+            if (!tp) { if (!capsOnly) add(sq, ts, 0); }
+            else { if (colorOf(tp) === them) add(sq, ts, F_CAP); break; }
+            ts += o;
+          }
+        }
+      }
+    }
+    if (!capsOnly) {
+      const base = us ? 112 : 0, kp = K | (us ? BLACK : 0), rp = R | (us ? BLACK : 0);
+      const kBit = us ? 4 : 1, qBit = us ? 8 : 2;
+      if (b[base + 4] === kp) {
+        if ((castle & kBit) && !b[base + 5] && !b[base + 6] && b[base + 7] === rp &&
+            !attacked(base + 4, them) && !attacked(base + 5, them) && !attacked(base + 6, them))
+          add(base + 4, base + 6, F_CASTLE);
+        if ((castle & qBit) && !b[base + 3] && !b[base + 2] && !b[base + 1] && b[base] === rp &&
+            !attacked(base + 4, them) && !attacked(base + 3, them) && !attacked(base + 2, them))
+          add(base + 4, base + 2, F_CASTLE);
+      }
+    }
+    return moves;
+  }
+
+  function make(m) {
+    const from = mFrom(m), to = mTo(m), fl = mFlags(m);
+    const pc = b[from];
+    let cap = b[to];
+    const u = { m, cap: 0, castle, ep, half };
+    b[to] = pc; b[from] = 0;
+    if (fl & F_EP) {
+      const cs = to + (turn ? 16 : -16);
+      cap = b[cs]; b[cs] = 0;
+    }
+    u.cap = cap;
+    if (fl & F_PROMO) b[to] = mPromo(m) | (turn ? BLACK : 0);
+    if (fl & F_CASTLE) {
+      if (to > from) { b[from + 1] = b[from + 3]; b[from + 3] = 0; }
+      else { b[from - 1] = b[from - 4]; b[from - 4] = 0; }
+    }
+    if ((pc & 7) === K) kings[turn] = to;
+    castle &= cmask[from] & cmask[to];
+    ep = fl & F_DOUBLE ? (from + to) >> 1 : -1;
+    half = (pc & 7) === P || cap ? 0 : half + 1;
+    if (turn) full++;
+    turn ^= 1;
+    stack.push(u);
+  }
+
+  function unmake() {
+    const u = stack.pop();
+    const m = u.m, from = mFrom(m), to = mTo(m), fl = mFlags(m);
+    turn ^= 1;
+    if (turn) full--;
+    let pc = b[to];
+    if (fl & F_PROMO) pc = P | (turn ? BLACK : 0);
+    b[from] = pc;
+    if (fl & F_EP) { b[to] = 0; b[to + (turn ? 16 : -16)] = u.cap; }
+    else b[to] = u.cap;
+    if (fl & F_CASTLE) {
+      if (to > from) { b[from + 3] = b[from + 1]; b[from + 1] = 0; }
+      else { b[from - 4] = b[from - 1]; b[from - 1] = 0; }
+    }
+    if ((pc & 7) === K) kings[turn] = from;
+    castle = u.castle; ep = u.ep; half = u.half;
+  }
+
+  function legal() {
+    const out = [];
+    for (const m of gen(false)) {
+      make(m);
+      if (!inCheck(turn ^ 1)) out.push(m);
+      unmake();
+    }
+    return out;
+  }
+
+  function perft(d) {
+    if (d === 0) return 1;
+    let n = 0;
+    for (const m of gen(false)) {
+      make(m);
+      if (!inCheck(turn ^ 1)) n += perft(d - 1);
+      unmake();
+    }
+    return n;
+  }
+
+  function san(m, legalList) {
+    const from = mFrom(m), to = mTo(m), fl = mFlags(m);
+    const pc = b[from], t = pc & 7;
+    let s;
+    if (fl & F_CASTLE) s = to > from ? 'O-O' : 'O-O-O';
+    else if (t === P) {
+      s = fl & F_CAP ? sqName(from)[0] + 'x' + sqName(to) : sqName(to);
+      if (fl & F_PROMO) s += '=' + ' PNBRQK'[mPromo(m)];
+    } else {
+      const others = (legalList || legal()).filter((o) =>
+        o !== m && mTo(o) === to && mFrom(o) !== from && b[mFrom(o)] === pc);
+      let dis = '';
+      if (others.length) {
+        const sameFile = others.some((o) => (mFrom(o) & 7) === (from & 7));
+        const sameRank = others.some((o) => mFrom(o) >> 4 === from >> 4);
+        if (!sameFile) dis = sqName(from)[0];
+        else if (!sameRank) dis = sqName(from)[1];
+        else dis = sqName(from);
+      }
+      s = ' PNBRQK'[t] + dis + (fl & F_CAP ? 'x' : '') + sqName(to);
+    }
+    make(m);
+    if (inCheck(turn)) s += legal().length ? '+' : '#';
+    unmake();
+    return s;
+  }
+
+  const uci = (m) => sqName(mFrom(m)) + sqName(mTo(m)) + (mFlags(m) & F_PROMO ? ' pnbrqk'[mPromo(m)] : '');
+
+  // Accepts SAN (with or without +/#/x/=) or UCI. Returns the move, or 0.
+  function find(str, legalList) {
+    const list = legalList || legal();
+    let s = String(str || '').trim().replace(/[+#!?]/g, '').replace(/0/g, 'O');
+    if (!s) return 0;
+    const sans = list.map((m) => san(m, list).replace(/[+#]/g, ''));
+    let i = sans.indexOf(s);
+    if (i >= 0) return list[i];
+    const u = s.toLowerCase().replace(/[-=x ]/g, '');
+    i = list.findIndex((m) => uci(m) === u);
+    if (i >= 0) return list[i];
+    const loose = (x) => x.replace(/[x=]/g, '');
+    i = sans.findIndex((x) => loose(x) === loose(s));
+    if (i >= 0) return list[i];
+    return 0;
+  }
+
+  function insufficient() {
+    const minors = [];
+    for (let sq = 0; sq < 128; sq++) {
+      if (sq & 0x88) { sq += 7; continue; }
+      const p = b[sq], t = p & 7;
+      if (!p || t === K) continue;
+      if (t === P || t === R || t === Q) return false;
+      minors.push({ t, color: colorOf(p), shade: ((sq >> 4) + (sq & 7)) & 1 });
+    }
+    if (minors.length <= 1) return true;
+    // Only bishops, all on the same square colour.
+    return minors.every((m) => m.t === B) && minors.every((m) => m.shade === minors[0].shade);
+  }
+
+  // ---------- evaluation (simplified evaluation function tables, rank 8 first) ----------
+  const PST = {
+    1: [0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5,
+        0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
+    2: [-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,0,0,0,-20,-40, -30,0,10,15,15,10,0,-30, -30,5,15,20,20,15,5,-30,
+        -30,0,15,20,20,15,0,-30, -30,5,10,15,15,10,5,-30, -40,-20,0,5,5,0,-20,-40, -50,-40,-30,-30,-30,-30,-40,-50],
+    3: [-20,-10,-10,-10,-10,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,10,10,5,0,-10, -10,5,5,10,10,5,5,-10,
+        -10,0,10,10,10,10,0,-10, -10,10,10,10,10,10,10,-10, -10,5,0,0,0,0,5,-10, -20,-10,-10,-10,-10,-10,-10,-20],
+    4: [0,0,0,0,0,0,0,0, 5,10,10,10,10,10,10,5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5,
+        -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, 0,0,0,5,5,0,0,0],
+    5: [-20,-10,-10,-5,-5,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,5,5,5,0,-10, -5,0,5,5,5,5,0,-5,
+        0,0,5,5,5,5,0,-5, -10,5,5,5,5,5,0,-10, -10,0,5,0,0,0,0,-10, -20,-10,-10,-5,-5,-10,-10,-20],
+    6: [-30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30,
+        -20,-30,-30,-40,-40,-30,-30,-20, -10,-20,-20,-20,-20,-20,-20,-10, 20,20,0,0,0,0,20,20, 20,30,10,0,0,10,30,20],
+    7: [-50,-40,-30,-20,-20,-30,-40,-50, -30,-20,-10,0,0,-10,-20,-30, -30,-10,20,30,30,20,-10,-30, -30,-10,30,40,40,30,-10,-30,
+        -30,-10,30,40,40,30,-10,-30, -30,-10,20,30,30,20,-10,-30, -30,-30,0,0,0,0,-30,-30, -50,-30,-30,-30,-30,-30,-30,-50],
+  };
+
+  function evaluate() {
+    let score = 0, heavy = 0;
+    const bishops = [0, 0];
+    for (let sq = 0; sq < 128; sq++) {
+      if (sq & 0x88) { sq += 7; continue; }
+      const p = b[sq];
+      if (!p) continue;
+      const t = p & 7;
+      if (t !== P && t !== K) heavy += VALUE[t];
+      if (t === B) bishops[colorOf(p)]++;
+    }
+    const endgame = heavy <= 1300;
+    for (let sq = 0; sq < 128; sq++) {
+      if (sq & 0x88) { sq += 7; continue; }
+      const p = b[sq];
+      if (!p) continue;
+      const t = p & 7, black = p & BLACK, r = sq >> 4, f = sq & 7;
+      const idx = black ? r * 8 + f : (7 - r) * 8 + f;
+      const v = VALUE[t] + PST[t === K && endgame ? 7 : t][idx];
+      score += black ? -v : v;
+    }
+    if (bishops[0] >= 2) score += 30;
+    if (bishops[1] >= 2) score -= 30;
+    return turn ? -score : score;
+  }
+
+  // ---------- search: iterative deepening alpha-beta + quiescence ----------
+  function search(opts = {}) {
+    const timeMs = opts.timeMs ?? 800, maxDepth = opts.maxDepth ?? 64, noise = opts.noise ?? 0, temperature = opts.temperature ?? 0;
+    const now = typeof performance !== 'undefined' ? () => performance.now() : () => Date.now();
+    const start = now();
+    let stop = false, nodes = 0;
+    const killers = [];
+    const history = new Int32Array(128 * 128);
+
+    const victim = (m) => {
+      const fl = mFlags(m);
+      if (fl & F_EP) return VALUE[P];
+      return VALUE[b[mTo(m)] & 7];
+    };
+    function order(moves, ply, first) {
+      const k = killers[ply] || [];
+      const scored = moves.map((m) => {
+        let s;
+        if (m === first) s = 1e9;
+        else if (mFlags(m) & F_CAP) s = 1e7 + victim(m) * 10 - VALUE[b[mFrom(m)] & 7] / 10;
+        else if (mFlags(m) & F_PROMO) s = 9e6 + mPromo(m);
+        else if (m === k[0]) s = 8e6;
+        else if (m === k[1]) s = 7e6;
+        else s = history[mFrom(m) * 128 + mTo(m)];
+        return [s, m];
+      });
+      scored.sort((x, y) => y[0] - x[0]);
+      return scored.map((x) => x[1]);
+    }
+    function tick() {
+      if ((++nodes & 2047) === 0 && now() - start > timeMs) stop = true;
+    }
+    function quiesce(alpha, beta, ply) {
+      tick();
+      if (stop) return 0;
+      const stand = evaluate();
+      if (stand >= beta) return stand;
+      if (stand > alpha) alpha = stand;
+      if (ply > 40) return stand;
+      for (const m of order(gen(true), ply, 0)) {
+        make(m);
+        if (inCheck(turn ^ 1)) { unmake(); continue; }
+        const s = -quiesce(-beta, -alpha, ply + 1);
+        unmake();
+        if (stop) return 0;
+        if (s >= beta) return s;
+        if (s > alpha) alpha = s;
+      }
+      return alpha;
+    }
+    function negamax(depth, alpha, beta, ply) {
+      tick();
+      if (stop) return 0;
+      if (half >= 100) return 0;
+      const chk = inCheck(turn);
+      if (chk && ply < 24) depth++;
+      if (depth <= 0) return quiesce(alpha, beta, ply);
+      let legalCount = 0, best = -Infinity;
+      for (const m of order(gen(false), ply, 0)) {
+        make(m);
+        if (inCheck(turn ^ 1)) { unmake(); continue; }
+        legalCount++;
+        const s = -negamax(depth - 1, -beta, -alpha, ply + 1);
+        unmake();
+        if (stop) return 0;
+        if (s > best) best = s;
+        if (s > alpha) {
+          alpha = s;
+          if (alpha >= beta) {
+            if (!(mFlags(m) & F_CAP)) {
+              const k = killers[ply] || (killers[ply] = [0, 0]);
+              if (k[0] !== m) { k[1] = k[0]; k[0] = m; }
+              history[mFrom(m) * 128 + mTo(m)] += depth * depth;
+            }
+            break;
+          }
+        }
+      }
+      if (!legalCount) return chk ? -MATE + ply : 0;
+      return best;
+    }
+
+    let root = legal();
+    if (!root.length) return { move: 0, score: 0, depth: 0, nodes: 0 };
+    let bestMove = root[0], bestScore = 0, reached = 0, lastScores = null;
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      let alpha = -Infinity, iterBest = 0, iterScore = -Infinity;
+      const scores = [];
+      for (const m of order(root, 0, bestMove)) {
+        make(m);
+        let s = -negamax(depth - 1, -Infinity, -alpha, 1);
+        unmake();
+        if (stop) break;
+        if (noise) s += Math.round((Math.random() - 0.5) * noise);
+        scores.push([s, m]);
+        if (s > iterScore) { iterScore = s; iterBest = m; }
+        // With a temperature every root move needs an exact score, so keep the window open.
+        if (s > alpha && !temperature) alpha = s;
+      }
+      if (stop && !iterBest) break;
+      if (iterBest) { bestMove = iterBest; bestScore = iterScore; reached = depth; }
+      if (stop) break;
+      scores.sort((x, y) => y[0] - x[0]);
+      root = scores.map((x) => x[1]);
+      lastScores = scores;
+      if (Math.abs(bestScore) > MATE - 100) break;
+      if (now() - start > timeMs * 0.45) break;
+    }
+    // Weaker play: pick among the scored moves, favouring better ones (softmax over centipawns).
+    if (temperature > 0 && lastScores && lastScores.length > 1 && Math.abs(bestScore) < MATE - 100) {
+      const top = lastScores[0][0];
+      const w = lastScores.map(([sc]) => Math.exp(Math.max(-50, (sc - top) / temperature)));
+      let r = Math.random() * w.reduce((a, x) => a + x, 0);
+      for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { bestMove = lastScores[i][1]; break; } }
+    }
+    return { move: bestMove, score: bestScore, depth: reached, nodes };
+  }
+
+  load(initialFen || START);
+
+  return {
+    START, P, N, B, R, Q, K, BLACK,
+    load, fen, key, legal, make, unmake, san, uci, find, perft, search, evaluate, attackers, insufficient,
+    inCheck, sqName, sqFrom,
+    get turn() { return turn; },
+    get half() { return half; },
+    get full() { return full; },
+    at: (s) => b[s],
+    from: mFrom, to: mTo, promo: mPromo,
+    isCapture: (m) => !!(mFlags(m) & F_CAP),
+    isPromo: (m) => !!(mFlags(m) & F_PROMO),
+    isCastle: (m) => !!(mFlags(m) & F_CASTLE),
+    capturedBy: (m) => (mFlags(m) & F_EP ? P : b[mTo(m)] & 7),
+  };
+}
+</script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const pos = createPosition();
+
+  const FILL = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
+  const LINE = { 1: '♙', 2: '♘', 3: '♗', 4: '♖', 5: '♕', 6: '♔' };
+  const VS = '︎';
+  const NAME = { 1: 'pawn', 2: 'knight', 3: 'bishop', 4: 'rook', 5: 'queen', 6: 'king' };
+  const POINTS = { 1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 0 };
+  const START_COUNT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 };
+  const COLOR = ['White', 'Black'];
+  const PACES = {
+    blitz: { label: 'Blitz', opts: { modelTier: 'quick' } },
+    rapid: { label: 'Rapid', opts: { modelTier: 'default', effort: 'low' } },
+    classical: { label: 'Classical', opts: { modelTier: 'complex' } },
+  };
+  // Strength by Elo: a depth cap, then a temperature (in centipawns) for how often weaker moves get picked.
+  const LEVELS = {
+    1000: { word: 'Beginner', opts: { timeMs: 600, maxDepth: 2, temperature: 180 } },
+    1100: { word: 'Beginner', opts: { timeMs: 600, maxDepth: 2, temperature: 140 } },
+    1200: { word: 'Casual', opts: { timeMs: 600, maxDepth: 2, temperature: 110 } },
+    1300: { word: 'Casual', opts: { timeMs: 700, maxDepth: 3, temperature: 85 } },
+    1400: { word: 'Club player', opts: { timeMs: 700, maxDepth: 3, temperature: 65 } },
+    1500: { word: 'Club player', opts: { timeMs: 700, maxDepth: 3, temperature: 50 } },
+    1600: { word: 'Club player', opts: { timeMs: 800, maxDepth: 3, temperature: 36 } },
+    1700: { word: 'Strong club player', opts: { timeMs: 900, maxDepth: 4, temperature: 25 } },
+    1800: { word: 'Strong club player', opts: { timeMs: 1000, maxDepth: 4, temperature: 15 } },
+    1900: { word: 'Expert', opts: { timeMs: 1200, maxDepth: 5, temperature: 7 } },
+    2000: { word: 'Expert', opts: { timeMs: 1500, temperature: 3 } },
+    2100: { word: 'Expert, full strength', opts: { timeMs: 3200 } },
+  };
+  const OLD_LEVELS = { casual: 1100, club: 1500, strong: 1900 };
+  // Ruy Lopez opening tree. Each line is PGN-like: a move, then an optional {note} and [name] for the position it reaches.
+  // Lines share prefixes; a note or name only needs writing once. Within a position, the first line listed is the main line.
+  const RUY_LOPEZ = [
+    'e4 {Takes the centre and opens lines for the queen and the f1 bishop.} e5 {Black claims an equal share of the centre.} ' +
+    'Nf3 {Develops with tempo by attacking e5.} Nc6 {Defends e5 and develops.} ' +
+    'Bb5 {The Ruy Lopez. The bishop pressures the knight that defends e5. The threat is not real yet: after Bxc6 dxc6 Nxe5, Black wins the pawn back with ...Qd4.} [Ruy Lopez] ' +
+    'a6 {The Morphy Defence. Black asks the bishop at once and keeps the option of ...b5 to break the pin for good.} [Morphy Defence] ' +
+    'Ba4 {Keeps the pin and the pressure. Retreating is the main line; taking on c6 is the Exchange Variation.} ' +
+    'Nf6 {Develops and counterattacks e4.} O-O {White castles and leaves e4 hanging, because taking it opens the e-file towards Black\'s king.} ' +
+    'Be7 {The Closed Ruy Lopez. Black covers the king and does not take on e4.} [Closed Ruy Lopez] ' +
+    'Re1 {Defends e4, so Bxc6 followed by Nxe5 becomes a real threat.} b5 {Breaks the pin before White wins the e5 pawn.} ' +
+    'Bb3 {The bishop moves to its best diagonal, aiming at f7.} d6 {Supports e5 and opens the c8 bishop.} ' +
+    'c3 {Prepares d4 and gives the b3 bishop a retreat square on c2.} O-O ' +
+    'h3 {Stops ...Bg4 pinning the f3 knight, so d4 can follow. This is the main battleground of the Ruy Lopez.} ' +
+    'Na5 {The Chigorin Variation. Black chases the strong bishop and prepares ...c5 to gain queenside space.} [Chigorin Variation] ' +
+    'Bc2 c5 d4 Qc7 {Adds a defender to e5 and connects the rooks.} Nbd2 cxd4 cxd4 Nc6 {The knight returns to pressure d4.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 ' +
+    'Bb7 {The Zaitsev Variation. The bishop eyes e4 and the rook will follow to e8.} [Zaitsev Variation] ' +
+    'd4 Re8 {Pressures e4 so that White cannot freely play d5 or dxe5.} Nbd2 Bf8 {Defends the king and frees e7 for the rook\'s pressure on e4.} ' +
+    'a4 {Hits b5 to open a second front on the queenside.} h6 {Stops Ng5, which would hit f7.} ' +
+    'Bc2 exd4 cxd4 Nb4 {Kicks the bishop off the b1-h7 diagonal.} Bb1 c5 {Strikes at d4. Karpov and Kasparov played this position many times in their world championship matches.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 ' +
+    'Nb8 {The Breyer Variation. The knight reroutes to d7, where it supports e5 and frees the c-pawn.} [Breyer Variation] ' +
+    'd4 Nbd7 Nbd2 Bb7 Bc2 Re8 Nf1 {The knight heads for g3, a typical Ruy Lopez manoeuvre towards the kingside.} Bf8 Ng3 g6 {Takes f5 away from the knight and prepares ...Bg7.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 ' +
+    'h6 {The Smyslov Variation. It stops Ng5 before Black regroups with ...Re8 and ...Bf8.} [Smyslov Variation] ' +
+    'd4 Re8 Nbd2 Bf8 Nf1 Bd7 Ng3 Na5 Bc2 c5',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 ' +
+    'O-O {Castling before ...d6 invites the Marshall Attack if White plays c3.} ' +
+    'c3 d5 {The Marshall Attack. Black gives up a pawn for a fast attack on White\'s king.} [Marshall Attack] ' +
+    'exd5 Nxd5 Nxe5 Nxe5 Rxe5 c6 {Supports the d5 knight. The bishop goes to d6 and the queen to h4.} ' +
+    'd4 Bd6 Re1 Qh4 g3 {Blocks the queen, but creates holes around White\'s king.} Qh3 {The queen settles right next to White\'s king. Black has lasting pressure for the pawn.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 O-O ' +
+    'h3 {An Anti-Marshall. White avoids ...d5 by delaying c3.} [Anti-Marshall] Bb7 d3 d6 a3 {Keeps a retreat square on a2 for the bishop and stops ...Nb4.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 O-O ' +
+    'a4 {Another Anti-Marshall. White hits b5 at once.} [Anti-Marshall with a4] Bb7 d3 d6',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O ' +
+    'Nxe4 {The Open Ruy Lopez. Black takes the pawn and gets active pieces, at the cost of a loose centre.} [Open Ruy Lopez] ' +
+    'd4 {Opens the centre while Black\'s king is still uncastled.} b5 Bb3 d5 {Keeps the knight on e4 protected.} ' +
+    'dxe5 Be6 {Covers d5 and the light squares.} ' +
+    'Nbd2 {The modern main line. It challenges the e4 knight at once.} Nc5 c3 d4 Bxe6 Nxe6 cxd4 Ncxd4 a4 {Opens a second front against Black\'s queenside pawns.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Nxe4 d4 b5 Bb3 d5 dxe5 Be6 ' +
+    'c3 Bc5 Nbd2 O-O Bc2 Nxf2 {The Dilworth Attack. Black sacrifices a knight for a rook and a strong attack along the f-file.} [Dilworth Attack] ' +
+    'Rxf2 f6 exf6 Bxf2+ Kxf2 Qxf6 {Black has a rook and a pawn for two minor pieces, plus pressure against White\'s king.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O ' +
+    'b5 Bb3 Bb7 {The Arkhangelsk Variation. The bishop eyes e4 and Black\'s pieces develop actively.} [Arkhangelsk Variation] ' +
+    'Re1 Bc5 c3 d6 d4 Bb6',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O ' +
+    'Bc5 {The Møller Defence. The bishop takes the active c5 square instead of e7.} [Møller Defence] c3 b5 Bb3 d6 a4 Rb8 d4 Bb6',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 ' +
+    'd6 {The Modern Steinitz Defence. It defends e5 solidly, so White\'s pressure on c6 goes nowhere.} [Modern Steinitz Defence] ' +
+    'c3 Bd7 {Breaks the pin, so Black\'s c6 knight is free to move.} d4 Nf6 O-O Be7 Re1 O-O',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 ' +
+    'Bxc6 {The Exchange Variation. White gives up the bishop pair to damage Black\'s pawns, aiming for a better endgame.} [Exchange Variation] ' +
+    'dxc6 {Takes towards the centre and opens lines for Black\'s bishops.} ' +
+    'O-O {Now Nxe5 really is a threat: after ...Qd4 and ...Qxe4, the rook comes to e1 and hits the queen.} ' +
+    'f6 {The main line. It defends e5 solidly.} d4 exd4 Nxd4 c5 {Kicks the knight away from its central post.} Nb3 Qxd1 Rxd1 ' +
+    'Bg4 f3 Be6 Nc3 Bd6 {White hopes the healthier pawn majority tells in the endgame; Black relies on the bishop pair.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O ' +
+    'Bg4 {Pins the knight. If White plays h3, Black can answer with ...h5 and invite hxg4, which opens the h-file towards White\'s king.} [Exchange: 5…Bg4 Line] ' +
+    'h3 h5 d3 {Taking the bishop would be dangerous because of the open h-file.} Qf6 Nbd2 Ne7 Re1 Ng6',
+
+    'e4 e5 Nf3 Nc6 Bb5 ' +
+    'Nf6 {The Berlin Defence. It counterattacks e4 at once. The Berlin is very solid and was made famous by Kramnik against Kasparov in 2000.} [Berlin Defence] ' +
+    'O-O Nxe4 d4 {White gives up the pawn for now and opens the centre.} Nd6 {Hits the bishop and avoids losing the knight to Re1.} ' +
+    'Bxc6 dxc6 dxe5 Nf5 Qxd8+ Kxd8 {The Berlin Endgame. Black has lost the right to castle but has the bishop pair and a very solid position.} [Berlin Endgame]',
+
+    'e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 ' +
+    'Re1 {Wins the pawn back with a direct attack on the knight.} [Berlin: 5.Re1 Line] Nd6 Nxe5 Be7 Bf1 Nxe5 Rxe5 O-O d4 Bf6 Re1 {A quiet, balanced position.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 Nf6 ' +
+    'd3 {The Anti-Berlin. White defends e4 and avoids the Berlin Endgame, keeping more pieces on the board.} [Anti-Berlin] ' +
+    'Bc5 c3 O-O O-O d6',
+
+    'e4 e5 Nf3 Nc6 Bb5 ' +
+    'Bc5 {The Classical (Cordel) Defence. The bishop develops actively and aims at f2.} [Classical Defence] ' +
+    'O-O Nf6 c3 {Prepares d4, which gains space with tempo against the bishop.} O-O d4 Bb6',
+
+    'e4 e5 Nf3 Nc6 Bb5 ' +
+    'f5 {The Schliemann Gambit. It is a sharp counterattack in the style of the King\'s Gambit.} [Schliemann Gambit] ' +
+    'Nc3 {The main answer. It develops and hits the e4 pawn again.} fxe4 Nxe4 d5 Nxe5 dxe4 Nxc6 Qg5 {Attacks g2. The c6 knight is still attacked by the b7 pawn.} ' +
+    'Qe2 Nf6 f4 Qxf4 Ne5+ c6 d4 {Very sharp. Both kings are short of cover.}',
+
+    'e4 e5 Nf3 Nc6 Bb5 ' +
+    'Nd4 {Bird\'s Defence. Black swaps off the f3 knight and gets a cramping pawn on d4, at the cost of time.} [Bird\'s Defence] ' +
+    'Nxd4 exd4 O-O c6 Bc4 Nf6 Re1 d6 c3',
+
+    'e4 e5 Nf3 Nc6 Bb5 ' +
+    'd6 {The Old Steinitz Defence. It is solid but passive: Black gives ground in the centre.} [Steinitz Defence] ' +
+    'd4 Bd7 Nc3 Nf6 O-O Be7 Re1 exd4 Nxd4 O-O',
+
+    'e4 e5 Nf3 Nc6 Bb5 ' +
+    'g6 {The Fianchetto (Smyslov) Defence. The bishop will add pressure to the long diagonal from g7.} [Fianchetto Defence] ' +
+    'c3 a6 Ba4 d6 d4 Bd7',
+  ];
+
+  function buildBook(lines) {
+    const root = { san: null, kids: [], parent: null, note: '', name: '', key: '', ply: 0 };
+    for (const line of lines) {
+      let node = root;
+      for (const t of line.match(/\{[^}]*\}|\[[^\]]*\]|[^\s]+/g)) {
+        if (t[0] === '{') { if (!node.note) node.note = t.slice(1, -1); continue; }
+        if (t[0] === '[') { if (!node.name) node.name = t.slice(1, -1); continue; }
+        let k = node.kids.find((x) => x.san === t);
+        if (!k) { k = { san: t, kids: [], parent: node, note: '', name: '', key: node.key ? node.key + ' ' + t : t, ply: node.ply + 1 }; node.kids.push(k); }
+        node = k;
+      }
+    }
+    const count = (n) => (n.lines = n.kids.length ? n.kids.reduce((a, k) => a + count(k), 0) : 1);
+    count(root);
+    return root;
+  }
+  // Italian Game opening tree, same format as the Ruy Lopez tree.
+  const ITALIAN = [
+    'e4 {Takes the centre and opens lines for the queen and the f1 bishop.} e5 {Black claims an equal share of the centre.} ' +
+    'Nf3 {Develops with tempo by attacking e5.} Nc6 {Defends e5 and develops.} ' +
+    'Bc4 {The Italian Game. The bishop aims at f7, the weakest point in Black\'s camp because only the king defends it.} [Italian Game] ' +
+    'Bc5 {The Giuoco Piano ("quiet game"). Black mirrors White and aims at f2.} [Giuoco Piano] ' +
+    'c3 {Prepares d4 to build a big centre, and gives the bishop a retreat square.} Nf6 {Develops and hits e4.} ' +
+    'd3 {The Giuoco Pianissimo, the modern main line. White keeps the centre closed and builds up slowly.} [Giuoco Pianissimo] ' +
+    'd6 {Black also keeps things solid and opens the c8 bishop.} O-O a6 {Gives the c5 bishop a retreat on a7 so it cannot be hit by b4 and d4.} ' +
+    'a4 {Gains queenside space and stops ...b5.} Ba7 Re1 O-O h3 {Stops ...Bg4 or ...Ng4.} h6 {The same idea for Black: it keeps White\'s pieces off g5.} ' +
+    'Nbd2 Re8 {Both sides are set for a slow manoeuvring game. White often reroutes the knight via f1 to g3.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 ' +
+    'd4 {The Classical Italian. White strikes in the centre at once.} [Classical Italian] exd4 cxd4 {White now has the ideal pawn centre on e4 and d4.} ' +
+    'Bb4+ {Checks so the bishop is not hit with tempo by d5 or d4-d5.} ' +
+    'Bd2 Bxd2+ Nbxd2 d5 {Black must hit the centre before White can play e5 or d5.} exd5 Nxd5 Qb3 {Pressures the d5 knight and b7.} ' +
+    'Nce7 {Supports the d5 knight.} O-O O-O {White has an isolated d-pawn but active pieces; Black is solid.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ ' +
+    'Nc3 {The Møller Attack. White sacrifices the e4 pawn for fast development.} [Møller Attack] ' +
+    'Nxe4 O-O Bxc3 d5 {Gains space with tempo and opens lines against Black\'s king.} Bf6 Re1 Ne7 Rxe4 d6 {A sharp position that has been analysed very deeply.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Bc5 ' +
+    'b4 {The Evans Gambit. White gives a pawn to win time for c3 and d4.} [Evans Gambit] ' +
+    'Bxb4 {Accepting is the most common reply.} c3 {Hits the bishop with tempo and prepares d4.} Ba5 {Keeps the pin idea on c3.} ' +
+    'd4 d6 {Holds e5 rather than giving up the centre.} Qb3 {Hits f7 and b7.} Qd7 {Defends f7.} dxe5 Bb6 {Black has the extra pawn; White has the initiative.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Bc5 b4 ' +
+    'Bb6 {The Evans Gambit Declined. Black keeps the bishop on its good diagonal.} [Evans Gambit Declined] ' +
+    'a4 {Threatens a5 to trap the bishop.} a6 {Gives the bishop a retreat on a7.} Nc3 Nf6 Nd5 Nxd5 exd5 Nd4 a5 Ba7 d3',
+
+    'e4 e5 Nf3 Nc6 Bc4 Bc5 ' +
+    'O-O {White castles first and keeps c3 and d3 for later.} [Giuoco Piano: 4.O-O Line] Nf6 d3 d6 c3 {Usually transposes to the Giuoco Pianissimo.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 ' +
+    'Nf6 {The Two Knights Defence. Black counterattacks e4 instead of copying White.} [Two Knights Defence] ' +
+    'Ng5 {Attacks f7 a second time. It breaks the rule of not moving a piece twice, but it is a serious try.} [Two Knights: Knight Attack (4.Ng5)] ' +
+    'd5 {The only good way to defend f7: block the bishop.} exd5 ' +
+    'Na5 {The main line. Black does not recapture and instead hits the bishop, giving a pawn for activity.} ' +
+    'Bb5+ c6 dxc6 bxc6 Be2 {The bishop retreats. White is a pawn up but behind in development.} h6 Nf3 e4 {Kicks the knight again.} Ne5 Bd6 {Black has good play for the pawn.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 ' +
+    'Nxd5 {A natural recapture, but it allows the Fried Liver Attack.} [Fried Liver Attack] ' +
+    'Nxf7 {Sacrifices the knight to drag Black\'s king into the open.} Kxf7 Qf3+ {Attacks the king and the pinned d5 knight.} Ke6 {The only move that holds d5.} ' +
+    'Nc3 {Adds a third attacker to d5.} Nb4 {Defends d5 again and threatens Nxc2+.} Qe4 c6 {Very sharp. Black\'s king is exposed but White is a piece down.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 ' +
+    'Bc5 {The Traxler Counterattack. Black ignores the threat to f7 and counterattacks f2.} [Traxler Counterattack] ' +
+    'Bxf7+ {The safest answer. White takes the pawn with check and avoids the wild lines after Nxf7.} Ke7 Bd5 {The bishop stays active and blocks the d-file.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Nf6 ' +
+    'd4 {Opens the centre at once.} [Two Knights: 4.d4 Line] exd4 O-O Nxe4 Re1 d5 Bxd5 {Uses the pin on the e-file to win time.} Qxd5 Nc3 {Attacks the queen while the e4 knight is pinned.} ' +
+    'Qa5 Nxe4 Be6 Neg5 O-O-O {Black castles long to get the king away from the e-file. Both sides have chances.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 Nf6 ' +
+    'd3 {The quiet modern choice. White defends e4 and avoids sharp theory.} [Two Knights: 4.d3 Line] Be7 O-O O-O Re1 d6 c3',
+
+    'e4 e5 Nf3 Nc6 Bc4 ' +
+    'Be7 {The Hungarian Defence. It is solid and avoids all of White\'s sharp tries.} [Hungarian Defence] ' +
+    'd4 exd4 Nxd4 d6 O-O Nf6 Nc3 O-O {White has more space; Black is cramped but sound.}',
+
+    'e4 e5 Nf3 Nc6 Bc4 ' +
+    'Nd4 {The Blackburne Shilling Gambit. It is a trap: after Nxe5? Qg5 Black gets a crushing attack. The right answer is simply to take the knight.} [Blackburne Shilling Gambit] ' +
+    'Nxd4 {Takes the knight and avoids the trap.} exd4 O-O {White is clearly better: well developed, with Black\'s pawn on d4 a target.}',
+  ];
+  // Queen's Gambit opening tree, same format as the other trees.
+  const QUEENS_GAMBIT = [
+    'd4 {Takes the centre with a pawn that the queen already protects.} d5 {Black stakes an equal claim to the centre.} ' +
+    'c4 {The Queen\'s Gambit. White offers the c-pawn to pull Black\'s d-pawn away from the centre. It is not a true gambit: White can usually win the pawn back.} [Queen\'s Gambit] ' +
+    'e6 {The Queen\'s Gambit Declined. Black holds d5 with a pawn. It is very solid, but it shuts in the c8 bishop.} [Queen\'s Gambit Declined] ' +
+    'Nc3 {Adds pressure on d5.} Nf6 {Defends d5 again and develops.} ' +
+    'Bg5 {Pins the knight that defends d5.} Be7 {Breaks the pin.} e3 O-O Nf3 ' +
+    'h6 {Asks the bishop to decide at once.} Bh4 ' +
+    'b6 {The Tartakower Variation. The c8 bishop will develop on b7, solving Black\'s biggest problem.} [Tartakower Variation] ' +
+    'cxd5 Nxd5 Bxe7 Qxe7 Nxd5 exd5 {Black\'s d5 pawn can become a target, but Black\'s pieces are free.} Rc1 Be6',
+
+    'd4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4 ' +
+    'Ne4 {The Lasker Defence. Black trades pieces to ease the cramped position.} [Lasker Defence] ' +
+    'Bxe7 Qxe7 cxd5 Nxc3 bxc3 exd5 Qb3 Qd6 {Black is solid; White has a little more space.}',
+
+    'd4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 ' +
+    'Nbd7 {The Orthodox Defence. Black keeps everything protected and waits for a chance to free the position.} [Orthodox Defence] ' +
+    'Rc1 c6 Bd3 dxc4 {Black gives up the centre for a moment so that White\'s bishop spends a tempo recapturing.} Bxc4 ' +
+    'Nd5 {Capablanca\'s freeing manoeuvre. Black trades pieces to make room.} Bxe7 Qxe7 O-O Nxc3 Rxc3 e5 {The freeing break. Black\'s c8 bishop finally has air.}',
+
+    'd4 d5 c4 e6 Nc3 Nf6 ' +
+    'cxd5 {The Exchange Variation. White fixes Black\'s pawn structure.} [Exchange Variation] exd5 {Black\'s c8 bishop is now free, but White gets a clear plan.} ' +
+    'Bg5 c6 e3 Be7 Bd3 Nbd7 Qc2 O-O Nf3 Re8 O-O Nf8 {The Carlsbad structure. White often plans the "minority attack" with b4-b5 against Black\'s queenside.}',
+
+    'd4 d5 c4 e6 Nc3 Nf6 ' +
+    'Nf3 {Keeps options open; the bishop may go to g5 or f4.} Be7 ' +
+    'Bf4 {The modern 5.Bf4 line. The bishop avoids being traded and controls e5.} [5.Bf4 Line] O-O e3 c5 {Black hits the centre at once.} dxc5 Bxc5',
+
+    'd4 d5 c4 e6 Nc3 Nf6 Nf3 ' +
+    'Bb4 {The Ragozin Defence. Black pins the c3 knight, mixing ideas from the Nimzo-Indian.} [Ragozin Defence] ' +
+    'Bg5 h6 Bxf6 Qxf6 e3 O-O {Black has the bishop pair; White has the better centre.}',
+
+    'd4 d5 c4 e6 Nc3 Nf6 Nf3 ' +
+    'c5 {The Semi-Tarrasch. Black strikes at the centre and recaptures on d5 with the knight to avoid an isolated pawn.} [Semi-Tarrasch Defence] ' +
+    'cxd5 Nxd5 e4 {White takes the big centre.} Nxc3 bxc3 cxd4 cxd4 Bb4+ Bd2 Bxd2+ Qxd2 O-O Bc4 Nc6 O-O b6 {White has the centre; Black hopes to attack it with the pieces.}',
+
+    'd4 d5 c4 e6 Nc3 ' +
+    'c5 {The Tarrasch Defence. Black accepts an isolated d-pawn in return for free, active pieces.} [Tarrasch Defence] ' +
+    'cxd5 exd5 Nf3 Nc6 g3 {The bishop on g2 will pressure the isolated d5 pawn.} Nf6 Bg2 Be7 O-O O-O Bg5 cxd4 Nxd4 h6 Be3 Re8',
+
+    'd4 d5 c4 ' +
+    'c6 {The Slav Defence. Black holds d5 with the c-pawn, so the c8 bishop is not shut in.} [Slav Defence] ' +
+    'Nf3 Nf6 Nc3 dxc4 {Now Black can take the pawn, because e4 is not easy for White to play.} ' +
+    'a4 {Stops ...b5, which would keep the extra pawn.} Bf5 {The bishop gets out before ...e6.} e3 e6 Bxc4 Bb4 O-O O-O Qe2 Nbd7 {The main line of the Slav. White will push e4; Black is solid.}',
+
+    'd4 d5 c4 c6 Nf3 Nf6 ' +
+    'e3 {A quieter choice that defends c4 in advance.} [Slav: 4.e3 Line] Bf5 Nc3 e6 Nh4 {Chases the bishop to win the bishop pair.} Bg6 Nxg6 hxg6 {The open h-file gives Black some compensation.}',
+
+    'd4 d5 c4 c6 Nf3 Nf6 Nc3 ' +
+    'e6 {The Semi-Slav. Black combines the Slav and the QGD: very solid, with the option of ...dxc4 and ...b5.} [Semi-Slav Defence] ' +
+    'e3 Nbd7 Bd3 dxc4 Bxc4 b5 {Gains time on the bishop and grabs queenside space.} [Meran Variation] Bd3 Bb7 e4 b4 Na4 c5 e5 Nd5 {A sharp, heavily analysed position.}',
+
+    'd4 d5 c4 c6 Nf3 Nf6 Nc3 e6 ' +
+    'Bg5 {Pins the knight and invites very sharp play.} dxc4 {The Botvinnik Variation. Black takes the pawn and lets White build a big attack.} [Botvinnik Variation] ' +
+    'e4 b5 e5 h6 Bh4 g5 Nxg5 {A piece sacrifice that is the main line.} hxg5 Bxg5 Nbd7 {One of the sharpest lines in all of chess theory.}',
+
+    'd4 d5 c4 c6 Nf3 Nf6 Nc3 e6 Bg5 ' +
+    'h6 {The Moscow Variation. Black asks the bishop for a decision before taking on c4.} [Moscow Variation] ' +
+    'Bxf6 Qxf6 e3 Nd7 Bd3 dxc4 Bxc4 g6 {Black has the bishop pair and a solid position.}',
+
+    'd4 d5 c4 c6 ' +
+    'cxd5 {The Exchange Slav. The pawn structure becomes symmetrical.} [Exchange Slav] cxd5 Nc3 Nf6 Bf4 Nc6 e3 Bf5 {Very balanced; White plays for small advantages.}',
+
+    'd4 d5 c4 ' +
+    'dxc4 {The Queen\'s Gambit Accepted. Black takes the pawn but does not try to keep it; the aim is free development.} [Queen\'s Gambit Accepted] ' +
+    'Nf3 {Stops ...e5 before winning the pawn back.} Nf6 e3 e6 Bxc4 c5 {Strikes at White\'s centre.} O-O a6 dxc5 Qxd1 Rxd1 Bxc5 {An early queen trade into an even endgame.}',
+
+    'd4 d5 c4 dxc4 ' +
+    'e4 {The most direct answer. White takes the whole centre.} [QGA: Central Variation] e5 {Black hits back in the centre.} Nf3 exd4 Bxc4 Nc6 O-O Be6',
+
+    'd4 d5 c4 ' +
+    'e5 {The Albin Countergambit. Black gives a pawn for a cramping pawn on d4.} [Albin Countergambit] ' +
+    'dxe5 d4 Nf3 Nc6 g3 {White\'s bishop on g2 will hit Black\'s queenside.} Be6 Nbd2 Qd7 Bg2 O-O-O {Both kings face attacks on opposite wings.}',
+
+    'd4 d5 c4 ' +
+    'Nc6 {The Chigorin Defence. Black develops pieces quickly and allows doubled pawns in return for activity.} [Chigorin Defence] ' +
+    'Nf3 Bg4 cxd5 Bxf3 gxf3 Qxd5 e3 e5 Nc3',
+  ];
+  // London System opening tree, same format as the other trees.
+  const LONDON = [
+    'd4 {Takes the centre with a pawn the queen already protects.} d5 {Black stakes an equal claim to the centre.} ' +
+    'Bf4 {The London System. The bishop develops outside the pawn chain before e3 shuts it in. White aims for the same solid setup against almost anything.} [London System] ' +
+    'Nf6 e3 {Supports d4 and opens the f1 bishop.} e6 Nf3 ' +
+    'c5 {The most testing setup. Black attacks d4 at once.} [London: Main Line] ' +
+    'c3 {The London triangle: pawns on c3, d4 and e3 make the centre rock solid.} Nc6 Nbd2 {The knight goes to d2, not c3, so it can support e4 or go to f3 and e5.} ' +
+    'Bd6 {Offers to trade White\'s best minor piece.} Bg3 {Keeps the bishop. If Black takes on g3, White\'s h-pawn recaptures and the h-file can open.} O-O Bd3 ' +
+    'b6 Ne5 {A typical London outpost. White often follows with f4 and a kingside attack.}',
+
+    'd4 d5 Bf4 Nf6 e3 e6 Nf3 ' +
+    'Bd6 {Black challenges the bishop before playing ...c5.} [London: Bishop Trade Offer (4…Bd6)] ' +
+    'Bg3 O-O Bd3 c5 c3 Nc6 Nbd2 b6 Ne5 Bb7 f4 {The Stonewall-style attack. White\'s pieces aim at Black\'s king.}',
+
+    'd4 d5 Bf4 Nf6 e3 ' +
+    'c5 {Black hits d4 early and keeps ...e6 in reserve.} c3 Nc6 Nd2 ' +
+    'Qb6 {Hits b2. This is Black\'s most direct try against the London.} [London: Early …Qb6 Line] ' +
+    'Qb3 {Defends b2 and offers a queen trade.} c4 {Kicks the queen with tempo.} Qc2 Bf5 {Hits the queen again.} Qc1 {The queen guards b2 from c1. White plans e4 to challenge Black\'s queenside space.} e6 Ngf3',
+
+    'd4 d5 Bf4 Nf6 e3 ' +
+    'Bf5 {The Symmetrical Variation. Black copies White and develops the light-squared bishop actively.} [Symmetrical Variation] ' +
+    'Nf3 e6 Bd3 {Offers to trade light-squared bishops.} Bxd3 Qxd3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O O-O {A quiet, balanced position.}',
+
+    'd4 d5 Bf4 Nf6 e3 ' +
+    'g6 {Black fianchettoes, in the style of the Grünfeld.} [Grünfeld Setup] Nf3 Bg7 Be2 O-O O-O c5 c3 {White stays solid; Black will try ...Nc6 and ...Qb6.}',
+
+    'd4 d5 Bf4 Nf6 ' +
+    'Nc3 {The Jobava London. White plays Nc3 before e3 for a sharper game.} [Jobava London] e6 ' +
+    'Nb5 {Threatens Nxc7+, forking the king and rook.} Na6 {Covers c7.} e3',
+
+    'd4 d5 Bf4 ' +
+    'c5 {Black strikes at d4 before developing the kingside.} [London: 2…c5 Line] e3 Nc6 c3 ' +
+    'Qb6 {Hits b2 at once.} Qb3 c4 Qc2 Bf5 Qc1 {The same idea as in the early ...Qb6 line: the queen guards b2 from c1.}',
+
+    'd4 ' +
+    'Nf6 {Black keeps options open and prevents e4.} ' +
+    'Bf4 {The London System against 1...Nf6.} [London System] ' +
+    'g6 {Black heads for a King\'s Indian setup.} [King\'s Indian Setup] e3 Bg7 Nf3 O-O Be2 d6 ' +
+    'h3 {Gives the bishop a retreat on h2, so ...Nh5 does not win the bishop pair.} c5 c3 {White keeps the solid triangle; Black will play on the queenside with ...Qb6 or ...b5.}',
+
+    'd4 Nf6 Bf4 ' +
+    'e6 {Black keeps the d-pawn flexible.} [London: 2…e6 Line] e3 c5 c3 Nc6 Nd2 d5 Ngf3 Bd6 Bg3 O-O Bd3 {The same structure as the main line.}',
+
+    'd4 Nf6 Bf4 ' +
+    'c5 {Black hits the centre at once.} [London: 2…c5 3.d5 Line] ' +
+    'd5 {White gains space instead of defending d4.} d6 Nc3 g6 e4 {A Benoni-style structure with a big centre for White.} Bg7 Nf3 O-O Be2',
+  ];
+  // English Opening tree, same format as the other trees.
+  const ENGLISH = [
+    'c4 {The English Opening. White controls d5 from the side instead of occupying the centre with pawns, and keeps the game flexible.} [English Opening] ' +
+    'e5 {The King\'s English, also called the Reversed Sicilian: a Sicilian Defence with colours reversed and an extra tempo for White.} [King\'s English (Reversed Sicilian)] ' +
+    'Nc3 {Adds control over d5.} Nf6 Nf3 {Attacks e5 at once.} Nc6 {Defends e5.} [Four Knights Variation] ' +
+    'g3 {The bishop will go to g2, aiming down the long diagonal at Black\'s queenside.} ' +
+    'd5 {Black grabs the centre. This is a Sicilian Dragon with colours reversed.} [Reversed Dragon] ' +
+    'cxd5 Nxd5 Bg2 Nb6 {The knight retreats to safety and covers c4 and d5.} O-O Be7 d3 O-O Be3 {White will play on the queenside with Rc1, a3 and b4.}',
+
+    'c4 e5 Nc3 Nf6 Nf3 Nc6 g3 ' +
+    'Bb4 {Pins the c3 knight, which weakens White\'s grip on d5 and e4.} [4.g3 Bb4 Line] ' +
+    'Bg2 O-O O-O e4 {Gains space and kicks the f3 knight.} Ng5 Bxc3 bxc3 Re8 f3 {White breaks up Black\'s pawn on e4 to open lines for the bishops.}',
+
+    'c4 e5 Nc3 Nf6 Nf3 Nc6 ' +
+    'e3 {A quieter setup that prepares d4.} [4.e3 Line] Bb4 Qc2 {Stops Black from doubling White\'s pawns without loss of time.} O-O ' +
+    'Nd5 {Hits the pinning bishop and the f6 knight.} Re8 Qf5 {An unusual queen move that pressures f6 and e5.} d6 Nxf6+ gxf6 Qh5 {Black\'s kingside is broken, but Black has the bishop pair and active pieces.}',
+
+    'c4 e5 Nc3 ' +
+    'Nc6 {Black keeps the knight flexible and prepares a kingside fianchetto.} g3 g6 Bg2 Bg7 ' +
+    'd3 {A mirror-image Closed Sicilian.} [Closed Variation] d6 Nf3 f5 {Black gains kingside space.} O-O Nf6 Rb1 {Prepares b4-b5 to attack on the queenside, while Black attacks on the kingside.} O-O b4',
+
+    'c4 ' +
+    'c5 {The Symmetrical Variation. Black copies White and fights for d4.} [Symmetrical Variation] ' +
+    'Nc3 Nc6 g3 g6 Bg2 Bg7 {Both sides fianchetto on the kingside.} [Fianchetto Line] ' +
+    'Nf3 Nf6 O-O O-O d4 {White breaks the symmetry and opens the centre.} cxd4 Nxd4 Nxd4 Qxd4 d6 Qd3 {White has a little more space; Black is solid.}',
+
+    'c4 c5 ' +
+    'Nf3 Nf6 Nc3 e6 g3 ' +
+    'b6 {The Hedgehog. Black sets up a compact position with pawns on the sixth rank and waits to counterattack.} [Hedgehog] ' +
+    'Bg2 Bb7 O-O Be7 d4 cxd4 Qxd4 d6 Rd1 a6 b3 Nbd7 {The classic Hedgehog. White has more space; Black waits for ...b5 or ...d5 at the right moment.}',
+
+    'c4 ' +
+    'Nf6 {The Anglo-Indian Defence. Black keeps options open: it can transpose to many 1.d4 openings.} [Anglo-Indian Defence] ' +
+    'Nc3 e6 ' +
+    'e4 {The Mikenas–Carls Variation. White grabs the centre and avoids the Nimzo-Indian.} [Mikenas–Carls Variation] ' +
+    'c5 e5 {Kicks the knight straight back home.} Ng8 Nf3 Nc6 d4 cxd4 Nxd4 Nxe5 {Black wins the e5 pawn but falls behind in development.}',
+
+    'c4 Nf6 Nc3 ' +
+    'g6 {Black heads for a King\'s Indian setup.} [King\'s Indian Setup] g3 Bg7 Bg2 O-O ' +
+    'e4 {The Botvinnik setup: pawns on c4 and e4 give White a firm grip on d5.} d6 Nge2 {The knight goes to e2 so the f-pawn can advance.} e5 O-O',
+
+    'c4 Nf6 Nc3 ' +
+    'd5 {The Anglo-Grünfeld. Black strikes in the centre at once.} [Anglo-Grünfeld] ' +
+    'cxd5 Nxd5 g3 {The bishop on g2 will pressure the d5 knight and the long diagonal.} g6 Bg2 Nb6 {The knight retreats before it is kicked.} d3 Bg7',
+
+    'c4 ' +
+    'e6 {The Agincourt Defence. Black prepares ...d5 with solid support.} [Agincourt Defence] ' +
+    'Nf3 d5 g3 Nf6 Bg2 Be7 O-O O-O b3 {White fianchettoes both bishops, in the style of the Réti.} c5 Bb2 Nc6 e3',
+
+    'c4 ' +
+    'c6 {The Anglo-Slav. Black prepares ...d5 with the c-pawn, as in the Slav and the Caro-Kann.} [Anglo-Slav] ' +
+    'Nf3 d5 e3 Nf6 Nc3 e6 b3 Nbd7 Bb2 Bd6 Qc2 O-O {A quiet game: White fianchettoes the queen\'s bishop and keeps d4 in reserve.}',
+  ];
+  // King's Indian Defence tree, same format as the other trees.
+  const KINGS_INDIAN = [
+    'd4 Nf6 {Develops and stops e4, without committing the centre pawns yet.} c4 {Grabs more central space.} ' +
+    'g6 {Black prepares to fianchetto the king\'s bishop.} [King\'s Indian Defence] Nc3 Bg7 {The bishop on g7 aims at the long diagonal and White\'s centre.} ' +
+    'e4 {White builds the big pawn centre that the King\'s Indian invites.} d6 {Black lets White have the centre for now and plans to hit it with ...e5 or ...c5.} ' +
+    'Nf3 O-O Be2 {The Classical Variation: natural, solid development.} [Classical Variation] ' +
+    'e5 {The main counter-strike against White\'s centre.} O-O Nc6 {Pressures d4 and invites d5.} ' +
+    'd5 {White closes the centre. Play now moves to the wings: White on the queenside, Black on the kingside.} Ne7 {The knight heads for the kingside to support ...f5.} ' +
+    'Ne1 {The Mar del Plata. The knight reroutes to d3 to support c5 and f4.} [Mar del Plata Variation] ' +
+    'Nd7 {Clears the way for ...f5.} Nd3 f5 {Black\'s kingside attack begins.} Bd2 Nf6 f3 f4 {Black gains space on the kingside and will push ...g5 and ...g4. A race between the two attacks.}',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7 ' +
+    'b4 {The Bayonet Attack. White starts the queenside attack at once.} [Bayonet Attack] ' +
+    'Nh5 {Prepares ...f5 and eyes f4.} Re1 f5 Ng5 {Fights for the e6 square.} Nf6 f3 {Holds e4. Both sides now race on opposite wings.}',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O ' +
+    'Na6 {A flexible alternative to ...Nc6. The knight can go to c5 and keeps the c-pawn free.} [7…Na6 Line] ' +
+    'Be3 Ng4 {Hits the bishop.} Bg5 Qe8 dxe5 dxe5 h3 h6 {The knight on g4 must retreat, but Black has an active position.}',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 ' +
+    'd5 {The Petrosian System. White closes the centre before castling.} [Petrosian System] ' +
+    'a5 {Slows down White\'s queenside expansion with b4.} Bg5 {Pins the knight and makes ...f5 harder to prepare.} h6 Bh4 Na6 {The knight heads for c5.}',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 ' +
+    'dxe5 {The Exchange Variation. White trades queens early and hopes for a small endgame edge.} [Exchange Variation] ' +
+    'dxe5 Qxd8 Rxd8 Bg5 {Pins the knight against the rook.} Re8 Nd5 Nxd5 cxd5 c6 Bc4 {Very drawish if Black is careful.}',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 ' +
+    'f3 {The Sämisch Variation. White supports e4 with a pawn and prepares Be3, Qd2 and a kingside pawn storm.} [Sämisch Variation] O-O Be3 ' +
+    'e5 {The classical answer.} [Sämisch: 6…e5 Line] d5 Nh5 {Prepares ...f5.} Qd2 f5 O-O-O {White castles long, so both kings face pawn storms.} Nd7',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f3 O-O Be3 ' +
+    'c5 {The Sämisch Gambit. Black gives a pawn to open lines while White\'s king is still in the centre.} [Sämisch Gambit] ' +
+    'dxc5 dxc5 Qxd8 Rxd8 Bxc5 Nc6 {Black has strong activity and quick development for the pawn.}',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 ' +
+    'f4 {The Four Pawns Attack. White takes as much space as possible.} [Four Pawns Attack] O-O Nf3 ' +
+    'c5 {Strikes at the over-extended centre at once.} d5 e6 Be2 exd5 cxd5 Bg4 {Black develops and targets the d5 pawn.} O-O Nbd7',
+
+    'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Be2 O-O ' +
+    'Bg5 {The Averbakh Variation. The bishop stops ...e5 from coming easily.} [Averbakh Variation] ' +
+    'c5 {Black hits the centre from the other side.} d5 e6 Qd2 exd5 exd5 Re8',
+
+    'd4 Nf6 c4 g6 ' +
+    'Nf3 Bg7 g3 {The Fianchetto Variation. White mirrors Black and keeps a quiet, positional game.} [Fianchetto Variation] ' +
+    'O-O Bg2 d6 O-O Nbd7 Nc3 e5 e4 c6 h3 Qb6 {Black pressures d4 and b2.}',
+  ];
+  // King's Indian Attack tree, same format as the other trees.
+  const KIA = [
+    'e4 {White starts with the e-pawn and will build the King\'s Indian setup behind it: d3, Nd2, Nf3, g3, Bg2 and O-O.} ' +
+    'e6 {The French Defence. This is the most common way to reach the King\'s Indian Attack.} [French Variation] ' +
+    'd3 {Instead of d4, White plays d3: a quieter centre that supports e4 and keeps the long diagonal open later.} d5 ' +
+    'Nd2 {Supports e4 so White never has to exchange on d5.} Nf6 Ngf3 ' +
+    'c5 {Black grabs queenside space, the main plan against the KIA.} [Main Line with …c5] ' +
+    'g3 Nc6 Bg2 Be7 O-O O-O Re1 {Prepares e5 by adding the rook to the e-file.} b5 {Black races on the queenside.} ' +
+    'e5 {The key push. It cramps Black\'s kingside and kicks the f6 knight.} Nd7 Nf1 {The knight heads for h2 or e3, a typical KIA manoeuvre.} a5 ' +
+    'h4 {White\'s kingside attack begins. Both sides race on opposite wings.}',
+
+    'e4 e6 d3 d5 Nd2 Nf6 Ngf3 ' +
+    'Nc6 {Black develops and prepares to fight for e5.} [4…Nc6 Line] g3 dxe4 {Black releases the tension.} dxe4 e5 {Black copies White\'s centre.} ' +
+    'Bg2 Bc5 O-O O-O c3 a5 {A balanced, symmetrical-looking position.}',
+
+    'e4 e6 d3 d5 Nd2 ' +
+    'c5 {Black plays ...c5 before ...Nf6, keeping the knight free to go to e7.} [3…c5 with …Bd6] ' +
+    'Ngf3 Nc6 g3 Bd6 {The bishop covers e5 and supports a later ...e5.} Bg2 Nge7 O-O O-O',
+
+    'e4 ' +
+    'c5 {The Sicilian. White uses the KIA setup to avoid heavy Open Sicilian theory.} [Sicilian Variation] Nf3 ' +
+    'e6 {Black heads for a French-style structure.} [2…e6 Line] d3 Nc6 g3 d5 Nbd2 Nf6 Bg2 Be7 O-O O-O Re1 b5 e5 Nd7 {The same plans as against the French: White on the kingside, Black on the queenside.}',
+
+    'e4 c5 Nf3 ' +
+    'd6 {Black keeps a flexible Sicilian setup.} [2…d6 Line] g3 Nc6 Bg2 g6 {Both sides fianchetto.} O-O Bg7 c3 {Prepares d4 or d3 depending on what Black does.} e5 d3',
+
+    'e4 ' +
+    'c6 {The Caro-Kann. Black prepares ...d5 without blocking the c8 bishop.} [Caro-Kann Variation] d3 d5 Nd2 ' +
+    'e5 {Black takes a full share of the centre.} [3…e5 Line] Ngf3 Bd6 g3 Nf6 Bg2 O-O O-O Re8 Re1 {Both sides are solid; White often plans c3, b4 and Bb2, or Nh4 and f4.}',
+
+    'e4 c6 d3 d5 Nd2 ' +
+    'g6 {Black fianchettoes, a modern setup.} [3…g6 Line] Ngf3 Bg7 g3 e5 Bg2 Ne7 {The knight goes to e7 so the f-pawn and the long diagonal stay free.} O-O O-O',
+
+    'Nf3 {White starts with the knight, keeping every option open, and plays the KIA setup against anything.} ' +
+    'd5 {Black takes the centre.} [Réti Move Order (1.Nf3 d5)] g3 Nf6 Bg2 ' +
+    'c6 {A solid Slav-style setup.} [Slav Setup] O-O Bg4 {The bishop develops before ...e6.} d3 Nbd7 Nbd2 e5 e4 {White strikes back in the centre, as in the King\'s Indian.} ' +
+    'dxe4 dxe4 Bc5 h3 Bh5',
+
+    'Nf3 d5 g3 Nf6 Bg2 ' +
+    'e6 {A Queen\'s Gambit Declined setup.} [QGD Setup] O-O Be7 d3 O-O Nbd2 c5 e4 {This is now the same structure as the French line of the King\'s Indian Attack.} Nc6 Re1',
+
+    'Nf3 d5 g3 Nf6 Bg2 ' +
+    'g6 {A Grünfeld-style setup: both sides fianchetto.} [Grünfeld Setup] O-O Bg7 d3 O-O Nbd2 c5 e4 Nc6 c3',
+
+    'Nf3 d5 g3 Nf6 Bg2 ' +
+    'Bf5 {Black develops the light-squared bishop first, London-style.} […Bf5 Setup] O-O e6 d3 h6 {Gives the bishop a retreat on h7.} Nbd2 Be7 ' +
+    'Qe1 {Supports e4 without letting Black trade on e4 with tempo. A typical KIA idea.} O-O e4 Bh7',
+
+    'Nf3 ' +
+    'Nf6 g3 g6 Bg2 Bg7 O-O O-O d3 d6 ' +
+    'e4 {A fully symmetrical King\'s Indian, with White a tempo ahead.} [Symmetrical King\'s Indian]',
+  ];
+  const OPENINGS = {
+    ruy: { name: 'Ruy Lopez', start: '1.e4 e5 2.Nf3 Nc6 3.Bb5', lines: RUY_LOPEZ },
+    italian: { name: 'Italian Game', start: '1.e4 e5 2.Nf3 Nc6 3.Bc4', lines: ITALIAN },
+    qg: { name: 'Queen\'s Gambit', start: '1.d4 d5 2.c4', lines: QUEENS_GAMBIT },
+    london: { name: 'London System', start: '1.d4 and 2.Bf4, followed by e3, Nf3 and c3', lines: LONDON },
+    english: { name: 'English Opening', start: '1.c4', lines: ENGLISH },
+    kid: { name: 'King\'s Indian Defence', start: '1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6', lines: KINGS_INDIAN, side: 1 },
+    kia: { name: 'King\'s Indian Attack', start: 'with 1.e4 or 1.Nf3, then the setup Nf3, g3, Bg2, O-O, d3, Nbd2 and e4', lines: KIA },
+  };
+  const bookRoots = {};
+  const bookRoot = (key) => bookRoots[key] || (bookRoots[key] = buildBook(OPENINGS[key].lines));
+  const learn = { on: false, opening: 'ruy', root: bookRoot('ruy'), node: null, stash: null, hover: -1, ctl: null,
+    mode: 'explore', side: 0, target: null, hint: 0, mistakes: 0, hints: 0, completed: 0, timer: null, wrong: null, feedback: null };
+  const practising = () => learn.on && learn.mode === 'practice';
+  const STORE = 'chess-with-claude:v1';
+  const OFF_CODES = ['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'];
+
+  const state = { moves: [], keys: [pos.key()], human: 0, over: null, clock: [0, 0], tickFrom: null, resultHidden: false,
+    tookBack: false, changed: false, saved: false, saveNote: '', fromOpening: null, manualTurn: false, hint: null, hintsUsed: 0 };
+  const settings = { color: 'white', opponent: 'engine', pace: 'rapid', level: 1500, flipped: false, chooseFirst: false, v: 2 };
+  const claude = { status: 'pending', fn: null };
+  let talk = { comment: '', after: '', note: '', warn: false, actions: [] };
+  let think = null;
+  let token = 0;
+  let selected = -1, targets = [];
+  let promoChoices = null;
+  let drag = null, ghost = null;
+  let roving = 52;
+  let viewPly = null; // null = the live game; otherwise how many moves into the game the board shows
+  let viewCache = { ply: -1, len: -1, p: null };
+  function positionAt(ply) {
+    if (viewCache.ply === ply && viewCache.len === state.moves.length && viewCache.p) return viewCache.p;
+    const p = createPosition();
+    for (const mv of state.moves.slice(0, ply)) {
+      const m = p.legal().find((x) => p.uci(x) === mv.uci);
+      if (!m) break;
+      p.make(m);
+    }
+    viewCache = { ply, len: state.moves.length, p };
+    return p;
+  }
+  function setView(ply) {
+    const n = state.moves.length;
+    if (ply == null || ply >= n) viewPly = null;
+    else viewPly = Math.max(0, ply);
+    if (promoChoices) { promoChoices = null; $('#promo').hidden = true; }
+    selected = -1; targets = [];
+    renderBoard();
+    renderStrips();
+    renderSheet();
+    renderReview();
+    if (learn.on) renderLearn();
+  }
+  const shownPly = () => (viewPly == null ? state.moves.length : viewPly);
+
+  // ---------- Claude connection ----------
+  // Finished games without takebacks are kept in the artifact's database, where Claude can read them back.
+  const dbPromise = (window.claude && typeof window.claude.use === 'function')
+    ? window.claude.use('db').catch(() => null)
+    : Promise.resolve(null);
+  let gamesSaved = null;
+  // Outside claude.ai (the standalone site) finished games are kept in this browser instead.
+  const STANDALONE = !!window.CHESS_STANDALONE;
+  const LOCAL_GAMES = 'chess-with-claude:games';
+  const localGames = () => { try { const v = JSON.parse(localStorage.getItem(LOCAL_GAMES) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+  dbPromise.then((db) => {
+    if (!db) { gamesSaved = localGames().length; renderControls(); return; }
+    db.collection('games').get().then((snap) => { gamesSaved = snap.size; renderControls(); }, () => {});
+  });
+  async function saveFinishedGame() {
+    if (!state.over || state.saved || learn.on || !state.moves.some((mv) => mv.by === 'human')) return;
+    if (state.tookBack) {
+      state.saved = true;
+      state.saveNote = 'Not saved to your game history, because a move was taken back.';
+      renderResult(); save();
+      return;
+    }
+    state.saved = true;
+    state.saveNote = 'Saving to your game history\u2026';
+    renderResult(); save();
+    const db = await dbPromise;
+    const o = state.over, kind = opponentKind();
+    const youScore = o.winner == null ? 0.5 : o.winner === state.human ? 1 : 0;
+    try {
+      const record = {
+        finishedAt: new Date().toISOString(),
+        you: COLOR[state.human],
+        result: o.winner === 0 ? '1-0' : o.winner === 1 ? '0-1' : '1/2-1/2',
+        youScore,
+        reason: o.reason,
+        opponent: kind === 'claude' ? 'Claude' : 'Built-in engine',
+        engineElo: kind === 'engine' ? settings.level : null,
+        claudePace: kind === 'claude' ? settings.pace : null,
+        opponentChangedMidGame: state.changed,
+        engineStoodInForClaude: state.moves.some((mv) => mv.by === 'standin'),
+        movesYouChoseForOpponent: state.moves.filter((mv) => mv.by === 'chosen').length,
+        hintsUsed: state.hintsUsed,
+        fromOpening: state.fromOpening,
+        moves: Math.ceil(state.moves.length / 2),
+        pgn: buildPgn(),
+      };
+      if (db) await db.collection('games').add(record);
+      else {
+        const list = localGames();
+        list.push(record);
+        localStorage.setItem(LOCAL_GAMES, JSON.stringify(list.slice(-1000)));
+      }
+      state.saveNote = db ? 'Saved to your game history.' : 'Saved to your game history on this device.';
+      if (gamesSaved != null) gamesSaved++; else gamesSaved = 1;
+    } catch (e) {
+      state.saved = false;
+      state.saveNote = e && e.code === 'quota_exceeded' ? 'Your game history is full, so this game wasn\u2019t saved.' : 'This game couldn\u2019t be saved to your game history.';
+    }
+    renderResult(); renderControls(); save();
+  }
+
+  const samplePromise = (window.claude && typeof window.claude.use === 'function')
+    ? window.claude.use('sample').catch(() => null)
+    : Promise.resolve(null);
+  samplePromise.then((fn) => {
+    if (fn) { claude.fn = fn; claude.status = 'ready'; }
+    else claude.status = 'off';
+    renderAll();
+  });
+
+  const opponentKind = () => (settings.opponent === 'claude' && claude.status !== 'off' ? 'claude' : 'engine');
+  const opponentName = () => (opponentKind() === 'claude' ? 'Claude' : 'The engine');
+
+  // ---------- helpers ----------
+  const now = () => performance.now();
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const colorOf = (p) => (p & 8 ? 1 : 0);
+  const pieceHTML = (p) => {
+    const t = p & 7;
+    return colorOf(p)
+      ? `<span class="pc b"><i class="f">${FILL[t]}${VS}</i><i class="o">${LINE[t]}${VS}</i></span>`
+      : `<span class="pc w"><i class="f">${FILL[t]}${VS}</i><i class="o">${LINE[t]}${VS}</i></span>`;
+  };
+  const figurine = (san) => san
+    .replace(/^([KQRBN])/, (_, l) => `<span class="fig">${LINE['  NBRQK'.indexOf(l)]}${VS}</span>`)
+    .replace(/=([QRBN])/, (_, l) => `=<span class="fig">${LINE['  NBRQK'.indexOf(l)]}${VS}</span>`);
+  const fmtClock = (ms) => {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(r).padStart(2, '0');
+  };
+  const moveLabel = (i) => `${(i >> 1) + 1}${i % 2 ? '…' : '.'}${state.moves[i].san}`;
+  function kingSquare(c, p = pos) {
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) { s += 7; continue; }
+      if (p.at(s) === (6 | (c ? 8 : 0))) return s;
+    }
+    return -1;
+  }
+  const announce = (text) => { $('#live').textContent = text; };
+
+  // ---------- clock ----------
+  function clockValue(side) {
+    return state.clock[side] + (state.tickFrom != null && pos.turn === side && !state.over ? now() - state.tickFrom : 0);
+  }
+  function stopClock() {
+    if (state.tickFrom != null) { state.clock[pos.turn] += now() - state.tickFrom; state.tickFrom = null; }
+  }
+  function startClock() { if (!state.over) state.tickFrom = now(); }
+
+  // ---------- game flow ----------
+  function detectOver() {
+    const legal = pos.legal();
+    if (!legal.length) return pos.inCheck() ? { winner: pos.turn ^ 1, reason: 'checkmate' } : { winner: null, reason: 'stalemate' };
+    if (pos.half >= 100) return { winner: null, reason: 'fifty' };
+    const k = state.keys[state.keys.length - 1];
+    if (state.keys.filter((x) => x === k).length >= 3) return { winner: null, reason: 'repetition' };
+    if (pos.insufficient()) return { winner: null, reason: 'material' };
+    return null;
+  }
+
+  function applyMove(m, by, comment) {
+    if (learn.on) return learnPlay(m);
+    stopClock();
+    const san = pos.san(m);
+    const uci = pos.uci(m);
+    pos.make(m);
+    state.moves.push({ uci, san, by, comment: comment || '' });
+    state.keys.push(pos.key());
+    state.over = detectOver();
+    state.resultHidden = false;
+    state.manualTurn = false;
+    state.hint = null;
+    selected = -1; targets = [];
+    viewPly = null;
+    startClock();
+    renderAll();
+    save();
+    const who = by === 'human' ? 'You played' : by === 'claude' ? 'Claude played' : 'The engine played';
+    announce(`${who} ${san}.${comment ? ' Claude says: ' + comment : ''}${state.over ? ' ' + resultText().title + '.' : ''}`);
+    if (state.over) {
+      saveFinishedGame();
+      if (by === 'human') claudeRemark();
+      return;
+    }
+    if (pos.turn !== state.human) opponentTurn();
+  }
+
+  function cancelThinking() {
+    token++;
+    if (think && think.ctl) think.ctl.abort();
+    think = null;
+  }
+
+  function opponentTurn() {
+    if (state.over || pos.turn === state.human) return;
+    cancelThinking();
+    const my = token;
+    if (opponentKind() === 'claude') claudeMove(my);
+    else engineMove(my, settings.level, false);
+  }
+
+  function newGame(auto) {
+    cancelThinking();
+    viewPly = null;
+    const c = settings.color === 'random' ? (Math.random() < 0.5 ? 0 : 1) : settings.color === 'black' ? 1 : 0;
+    state.human = c;
+    pos.load(pos.START);
+    state.moves = [];
+    state.keys = [pos.key()];
+    state.over = null;
+    state.resultHidden = false;
+    state.tookBack = false; state.changed = false; state.saved = false; state.saveNote = ''; state.fromOpening = null; state.manualTurn = false; state.hint = null; state.hintsUsed = 0;
+    state.clock = [0, 0];
+    state.tickFrom = now();
+    settings.flipped = false;
+    selected = -1; targets = [];
+    promoChoices = null;
+    talk = { comment: '', after: '', note: '', warn: false, actions: [] };
+    renderAll();
+    save();
+    announce(`New game. You play ${COLOR[c]}.`);
+    state.manualTurn = pos.turn !== state.human && !!settings.chooseFirst;
+    if (state.manualTurn) renderAll();
+    else if (pos.turn !== state.human && (auto || opponentKind() === 'engine')) opponentTurn();
+  }
+
+  // Takes back one move at a time, including book moves from practice. If that leaves the computer to move,
+  // it waits: you can make its move yourself or let it play.
+  function takeback() {
+    if (!state.moves.length) return;
+    const wasThinking = !!think;
+    cancelThinking();
+    stopClock();
+    pos.unmake(); state.moves.pop(); state.keys.pop();
+    state.over = null;
+    state.tookBack = true; state.saveNote = '';
+    state.manualTurn = pos.turn !== state.human;
+    state.hint = null;
+    selected = -1; targets = [];
+    talk.note = state.manualTurn ? '' : wasThinking ? 'Took back your move.' : 'Took back a move.';
+    talk.warn = false;
+    talk.actions = [];
+    viewPly = null;
+    startClock();
+    renderAll();
+    save();
+    announce('Move taken back.');
+  }
+
+  let resignTimer = null;
+  function resign() {
+    const btn = $('#btn-resign');
+    if (state.over || !state.moves.length) return;
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = 'Confirm';
+      clearTimeout(resignTimer);
+      resignTimer = setTimeout(disarmResign, 3500);
+      return;
+    }
+    disarmResign();
+    cancelThinking();
+    stopClock();
+    state.over = { winner: state.human ^ 1, reason: 'resign' };
+    state.resultHidden = false;
+    renderAll();
+    save();
+    announce('You resigned.');
+    saveFinishedGame();
+    claudeRemark();
+  }
+  function disarmResign() {
+    clearTimeout(resignTimer);
+    const btn = $('#btn-resign');
+    btn.classList.remove('armed');
+    btn.textContent = 'Resign';
+  }
+
+  // ---------- engine (in a worker when the browser allows it) ----------
+  let worker = null, jobId = 0;
+  const jobs = new Map();
+  function getWorker() {
+    if (worker !== null) return worker;
+    try {
+      const src = document.getElementById('core').textContent +
+        '\nself.onmessage=function(e){var p=createPosition(e.data.fen);var r=p.search(e.data.opts);' +
+        'self.postMessage({id:e.data.id,uci:r.move?p.uci(r.move):null});};';
+      worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      worker.onmessage = (e) => {
+        const j = jobs.get(e.data.id);
+        if (j) { jobs.delete(e.data.id); j.resolve(e.data.uci); }
+      };
+      worker.onerror = (e) => {
+        e.preventDefault && e.preventDefault();
+        const pending = [...jobs.values()];
+        jobs.clear();
+        worker = false;
+        pending.forEach((j) => runEngine(j.fen, j.opts).then(j.resolve));
+      };
+    } catch (_) {
+      worker = false;
+    }
+    return worker;
+  }
+  function runEngine(fen, opts) {
+    const w = getWorker();
+    if (w) {
+      return new Promise((resolve) => {
+        const id = ++jobId;
+        jobs.set(id, { resolve, fen, opts });
+        w.postMessage({ id, fen, opts });
+      });
+    }
+    return new Promise((resolve) => setTimeout(() => {
+      const p = createPosition(fen);
+      const r = p.search(opts);
+      resolve(r.move ? p.uci(r.move) : null);
+    }, 30));
+  }
+
+  async function engineMove(my, level, standIn) {
+    think = { token: my, who: 'engine', standIn, started: now() };
+    renderAll();
+    const t0 = now();
+    const uci = await runEngine(pos.fen(), LEVELS[level].opts);
+    const wait = 450 - (now() - t0);
+    if (wait > 0) await sleep(wait);
+    if (my !== token) return;
+    think = null;
+    const m = uci ? pos.find(uci) : 0;
+    if (!m) { renderAll(); return; }
+    if (!standIn) { talk.note = ''; talk.actions = []; }
+    applyMove(m, standIn ? 'standin' : 'engine', '');
+  }
+
+  // ---------- Claude as the opponent ----------
+  function movetext(list) {
+    if (!list.length) return '';
+    return list.map((mv, i) => (i % 2 === 0 ? `${(i >> 1) + 1}. ` : '') + mv.san).join(' ');
+  }
+  function diagram() {
+    const rows = [];
+    for (let r = 7; r >= 0; r--) {
+      let row = `${r + 1} |`;
+      for (let f = 0; f < 8; f++) {
+        const p = pos.at(r * 16 + f);
+        row += ' ' + (p ? (p & 8 ? ' pnbrqk'[p & 7] : ' PNBRQK'[p & 7]) : '.');
+      }
+      rows.push(row);
+    }
+    rows.push('    a b c d e f g h');
+    return rows.join('\n');
+  }
+  function boardFacts(me) {
+    const them = me ^ 1, out = [];
+    const one = (s) => `${NAME[pos.at(s) & 7]} on ${pos.sqName(s)}`;
+    const many = (arr) => {
+      const parts = arr.map(one);
+      return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
+    };
+    if (pos.inCheck()) out.push(`You are in check from their ${many(pos.attackers(kingSquare(me), them))}.`);
+    const mine = [], theirs = [];
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) { s += 7; continue; }
+      const p = pos.at(s);
+      if (!p || (p & 7) === 6) continue;
+      (colorOf(p) === me ? mine : theirs).push(s);
+    }
+    for (const s of mine) {
+      const att = pos.attackers(s, them);
+      if (!att.length) continue;
+      const def = pos.attackers(s, me);
+      out.push(`Your ${one(s)} is attacked by their ${many(att)}; ${def.length ? 'it is defended by your ' + many(def) : 'it is undefended'}.`);
+    }
+    for (const s of theirs) {
+      const att = pos.attackers(s, me);
+      if (!att.length) continue;
+      const def = pos.attackers(s, them);
+      out.push(`You attack their ${one(s)} with your ${many(att)}; ${def.length ? 'it is defended by their ' + many(def) : 'it is undefended'}.`);
+    }
+    const mat = [0, 0];
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) { s += 7; continue; }
+      const p = pos.at(s);
+      if (p) mat[colorOf(p)] += POINTS[p & 7];
+    }
+    out.push(`Material (pawn 1, knight 3, bishop 3, rook 5, queen 9): you ${mat[me]}, them ${mat[them]}.`);
+    return out.map((l) => '- ' + l).join('\n');
+  }
+  function buildPrompt() {
+    const me = pos.turn;
+    const legal = pos.legal();
+    const groups = {};
+    for (const m of legal) {
+      const t = pos.at(pos.from(m)) & 7;
+      (groups[t] = groups[t] || []).push(pos.san(m, legal));
+    }
+    const listing = [6, 5, 4, 3, 2, 1].filter((t) => groups[t])
+      .map((t) => `${NAME[t][0].toUpperCase() + NAME[t].slice(1)}: ${groups[t].join(' ')}`).join('\n');
+    const last = state.moves[state.moves.length - 1];
+    const remarks = state.moves.filter((mv) => mv.by === 'claude' && mv.comment).slice(-3).map((mv) => `"${mv.comment}"`);
+    return [
+      `You are Claude, playing a casual game of chess against a person in a chess app. You have the ${COLOR[me]} pieces and it is your move.`,
+      '',
+      `Moves so far: ${movetext(state.moves) || 'none, you make the first move of the game'}`,
+      last ? `Their last move: ${last.san}` : '',
+      '',
+      `Position (FEN): ${pos.fen()}`,
+      '',
+      `Board seen from White's side. Uppercase letters are White, lowercase are Black; your pieces are ${me ? 'lowercase' : 'uppercase'}.`,
+      diagram(),
+      '',
+      'What you can see on the board:',
+      boardFacts(me),
+      '',
+      'Your legal moves, by piece (choose exactly one, spelled as shown):',
+      listing,
+      '',
+      'Play the strongest move you can find. First check what your opponent is threatening, then look for your own checks, captures and threats, then improve your worst-placed piece.',
+      remarks.length ? `Your recent remarks, so you don't repeat yourself: ${remarks.join(' ')}` : '',
+      '',
+      'Reply with only this JSON: {"move": "<one move from the list>", "comment": "<one short line of friendly table talk to your opponent, under 20 words; don\'t give away your plan>"}',
+    ].filter((l, i, a) => l !== '' || a[i - 1] !== '').join('\n');
+  }
+  const cleanComment = (c) => String(c || '').replace(/\s+/g, ' ').trim().replace(/^["“]+|["”]+$/g, '').slice(0, 220);
+
+  async function claudeMove(my) {
+    think = { token: my, who: 'claude', started: now(), ctl: null };
+    talk.note = ''; talk.warn = false; talk.actions = [];
+    renderAll();
+    const fn = claude.fn || await samplePromise;
+    if (my !== token) return;
+    if (!fn) {
+      think = null;
+      claude.status = 'off';
+      talk.note = 'Claude isn’t connected in this view, so the built-in engine is playing for now.';
+      return engineMove(my, settings.level, true);
+    }
+    const base = buildPrompt();
+    let prompt = base, reply = null, move = 0;
+    for (let attempt = 0; attempt < 2 && !move; attempt++) {
+      const ctl = new AbortController();
+      think.ctl = ctl;
+      const opts = Object.assign({}, PACES[settings.pace].opts, { signal: ctl.signal });
+      if (attempt) opts.cache = false;
+      try {
+        reply = await fn.json(prompt, opts);
+      } catch (e) {
+        if (my !== token) return;
+        if (e && e.code === 'invalid_json') {
+          prompt = base + '\n\nYour previous reply could not be read as JSON. Reply with only the JSON object.';
+          continue;
+        }
+        think = null;
+        return claudeError(e, my);
+      }
+      if (my !== token) return;
+      const said = reply && typeof reply === 'object' ? String(reply.move ?? '').slice(0, 24) : '';
+      move = said ? pos.find(said) : 0;
+      if (!move) prompt = base + `\n\nYour previous reply chose "${said}", which is not a legal move here. Choose one move from the list, spelled exactly as shown.`;
+    }
+    think = null;
+    if (!move) {
+      talk.note = 'Claude named an illegal move twice, so the built-in engine made this move for it.';
+      return engineMove(my, settings.level, true);
+    }
+    const comment = cleanComment(reply.comment);
+    if (comment) { talk.comment = comment; talk.after = ''; }
+    talk.note = ''; talk.actions = [];
+    applyMove(move, 'claude', comment);
+    if (comment) talk.after = 'after ' + moveLabel(state.moves.length - 1);
+    renderTalk();
+  }
+
+  function claudeError(e, my) {
+    const code = e && e.code;
+    if (OFF_CODES.includes(code)) {
+      claude.status = 'off';
+      talk.note = code === 'not_granted'
+        ? 'Claude wasn’t given permission to play here, so the built-in engine is playing instead.'
+        : 'Claude isn’t available for this account here, so the built-in engine is playing instead.';
+      talk.warn = false;
+      return engineMove(my, settings.level, true);
+    }
+    talk.warn = code !== 'cancelled';
+    talk.note = code === 'cancelled' ? 'Stopped. Claude still has the move.'
+      : code === 'rate_limited' ? 'Claude has hit a usage or rate limit. Try again in a little while, or let the engine make this move.'
+      : code === 'session_expired' ? 'Your Claude session expired. Sign in again, then ask Claude to move.'
+      : code === 'refused' ? 'Claude declined to answer for this position. Ask again, or let the engine make this move.'
+      : 'Claude couldn’t answer that time. Ask again, or let the engine make this move.';
+    talk.actions = ['ask', 'engine'];
+    renderAll();
+  }
+
+  async function claudeRemark() {
+    if (opponentKind() !== 'claude' || !claude.fn || !state.over) return;
+    const my = token;
+    const o = state.over, me = state.human ^ 1;
+    const outcome = o.reason === 'resign' ? 'Your opponent resigned, so you won.'
+      : o.winner === me ? 'You won by checkmate.'
+      : o.winner === state.human ? 'Your opponent checkmated you, so you lost.'
+      : `The game was drawn (${resultText().detail.replace(/\.$/, '')}).`;
+    const prompt = `You are Claude. You just finished a casual chess game against a person; you had the ${COLOR[me]} pieces. ${outcome}\nThe moves: ${movetext(state.moves) || '(none)'}\n\nWrite one short, warm line to your opponent about the game, under 20 words. Reply with the line only.`;
+    try {
+      const { text } = await claude.fn(prompt, { modelTier: 'quick' });
+      if (my !== token) return;
+      talk.comment = cleanComment(text);
+      talk.after = 'after the game';
+      renderTalk();
+    } catch (_) { /* a closing remark is optional */ }
+  }
+
+  // ---------- board input ----------
+  const canMove = () => (learn.on
+    ? viewPly == null && !promoChoices && learn.node.kids.length > 0 && (!practising() || (pos.turn === learn.side && !learn.timer))
+    : viewPly == null && !state.over && (pos.turn === state.human || state.manualTurn) && !think && !promoChoices);
+  // manualTurn: the computer is waiting, so you may make its move yourself.
+  const mover = () => (learn.on || state.manualTurn ? pos.turn : state.human);
+  function select(sq) {
+    selected = sq;
+    targets = sq >= 0 ? pos.legal().filter((m) => pos.from(m) === sq) : [];
+    if (learn.on && !practising()) { const book = new Set(candidates().map((c) => c.m)); targets = targets.filter((m) => book.has(m)); }
+    renderBoard();
+  }
+  function attempt(from, to) {
+    const cands = targets.filter((m) => pos.from(m) === from && pos.to(m) === to);
+    if (!cands.length) return false;
+    if (cands.length > 1) { showPromo(cands); return true; }
+    applyMove(cands[0], pos.turn === state.human ? 'human' : 'chosen', '');
+    return true;
+  }
+  function tap(sq) {
+    if (!canMove()) return;
+    if (selected >= 0 && targets.some((m) => pos.to(m) === sq)) { attempt(selected, sq); return; }
+    const p = pos.at(sq);
+    if (p && colorOf(p) === mover() && selected !== sq) select(sq);
+    else select(-1);
+  }
+
+  const boardEl = $('#board');
+  const squares = [];
+  for (let i = 0; i < 64; i++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sq';
+    boardEl.appendChild(b);
+    squares.push(b);
+  }
+  const viewBlack = () => ((learn.on ? (practising() ? learn.side : 0) : state.human) === 1) !== settings.flipped;
+  function squareAt(i) {
+    const row = i >> 3, col = i & 7, vb = viewBlack();
+    return (vb ? row : 7 - row) * 16 + (vb ? 7 - col : col);
+  }
+
+  let lastPointerAt = -1e9;
+  boardEl.addEventListener('pointerdown', (e) => {
+    lastPointerAt = performance.now();
+    if (e.button !== 0) return;
+    const el = e.target.closest('.sq');
+    if (!el || !canMove()) return;
+    const sq = +el.dataset.sq;
+    const p = pos.at(sq);
+    e.preventDefault();
+    if (selected >= 0 && targets.some((m) => pos.to(m) === sq)) { attempt(selected, sq); return; }
+    if (p && colorOf(p) === mover()) {
+      const wasSelected = selected === sq;
+      if (!wasSelected) select(sq);
+      drag = { sq, id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, wasSelected, piece: p };
+      try { boardEl.setPointerCapture(e.pointerId); } catch (_) {}
+    } else select(-1);
+  });
+  boardEl.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
+      drag.moved = true;
+      const size = boardEl.getBoundingClientRect().width / 8;
+      ghost = document.createElement('div');
+      ghost.className = 'ghost ' + (colorOf(drag.piece) ? 'b' : 'w');
+      ghost.style.width = ghost.style.height = size + 'px';
+      ghost.style.fontSize = size * 0.776 + 'px';
+      ghost.innerHTML = pieceHTML(drag.piece).replace(/^<span[^>]*>|<\/span>$/g, '');
+      document.body.appendChild(ghost);
+      const pc = squares.find((s) => +s.dataset.sq === drag.sq)?.querySelector('.pc');
+      if (pc) pc.classList.add('lifted');
+    }
+    ghost.style.left = e.clientX + 'px';
+    ghost.style.top = e.clientY + 'px';
+  });
+  function endDrag(e, cancelled) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    if (ghost) { ghost.remove(); ghost = null; }
+    if (cancelled) { renderBoard(); return; }
+    if (d.moved) {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const sqEl = el && el.closest ? el.closest('.sq') : null;
+      const to = sqEl && boardEl.contains(sqEl) ? +sqEl.dataset.sq : -1;
+      if (to < 0 || to === d.sq || !attempt(d.sq, to)) renderBoard();
+    } else if (d.wasSelected) select(-1);
+  }
+  boardEl.addEventListener('pointerup', (e) => endDrag(e, false));
+  boardEl.addEventListener('pointercancel', (e) => endDrag(e, true));
+  boardEl.addEventListener('click', (e) => {
+    // Keyboard activation only; pointers are handled above (some touch browsers send detail 0 clicks after a tap).
+    if (e.detail !== 0 || performance.now() - lastPointerAt < 800) return;
+    const el = e.target.closest('.sq');
+    if (el) tap(+el.dataset.sq);
+  });
+  boardEl.addEventListener('keydown', (e) => {
+    const el = e.target.closest('.sq');
+    if (!el) return;
+    const i = squares.indexOf(el);
+    const d = { ArrowUp: -8, ArrowDown: 8, ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (d == null) return;
+    const j = i + d;
+    if (j < 0 || j > 63 || (Math.abs(d) === 1 && (j >> 3) !== (i >> 3))) return;
+    e.preventDefault();
+    setRoving(j);
+    squares[j].focus();
+  });
+  function setRoving(i) {
+    roving = i;
+    squares.forEach((s, k) => { s.tabIndex = k === i ? 0 : -1; });
+  }
+  boardEl.addEventListener('focusin', (e) => {
+    const i = squares.indexOf(e.target);
+    if (i >= 0 && i !== roving) setRoving(i);
+  });
+
+  // ---------- promotion ----------
+  function showPromo(cands) {
+    promoChoices = cands;
+    const row = $('#promo-row');
+    row.innerHTML = '';
+    for (const t of [5, 4, 3, 2]) {
+      const m = cands.find((c) => pos.promo(c) === t);
+      if (!m) continue;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'promo-btn';
+      b.setAttribute('aria-label', NAME[t]);
+      b.innerHTML = pieceHTML(t | (state.human ? 8 : 0));
+      b.addEventListener('click', () => { promoChoices = null; $('#promo').hidden = true; applyMove(m, pos.turn === state.human ? 'human' : 'chosen', ''); });
+      row.appendChild(b);
+    }
+    $('#promo').hidden = false;
+    row.firstChild.focus();
+  }
+  $('#promo-cancel').addEventListener('click', () => { promoChoices = null; $('#promo').hidden = true; select(-1); });
+
+  // ---------- rendering ----------
+  function renderBoard() {
+    const ply = shownPly();
+    const bp = viewPly == null ? pos : positionAt(ply);
+    const last = ply ? state.moves[ply - 1].uci : '';
+    const lastFrom = last ? pos.sqFrom(last.slice(0, 2)) : -1, lastTo = last ? pos.sqFrom(last.slice(2, 4)) : -1;
+    const checkSq = bp.inCheck() ? kingSquare(bp.turn, bp) : -1;
+    const marks = practiceMarks();
+    const movable = canMove();
+    const vb = viewBlack();
+    $('.board-wrap').classList.toggle('reviewing', viewPly != null);
+    for (let i = 0; i < 64; i++) {
+      const el = squares[i], sq = squareAt(i);
+      const p = bp.at(sq);
+      const file = sq & 7, rank = sq >> 4;
+      const tgt = targets.find((m) => pos.to(m) === sq);
+      const cls = ['sq'];
+      if (((rank + file) & 1) === 0) cls.push('dk');
+      if (sq === lastFrom || sq === lastTo) cls.push('last');
+      if (sq === selected) cls.push('sel');
+      if (sq === checkSq) cls.push('check');
+      if (marks.has(sq)) cls.push(marks.get(sq));
+      if (tgt) cls.push('tgt', pos.isCapture(tgt) ? 'cap' : 'quiet');
+      if (movable && p && colorOf(p) === mover()) cls.push('mine');
+      el.className = cls.join(' ');
+      el.tabIndex = i === roving ? 0 : -1;
+      el.dataset.sq = sq;
+      let html = '';
+      if ((i >> 3) === 7) html += `<span class="coord file">${'abcdefgh'[file]}</span>`;
+      if ((i & 7) === 0) html += `<span class="coord rank">${rank + 1}</span>`;
+      if (p) html += pieceHTML(p);
+      html += '<span class="dot"></span>';
+      el.innerHTML = html;
+      el.setAttribute('aria-label', `${pos.sqName(sq)}, ${p ? COLOR[colorOf(p)].toLowerCase() + ' ' + NAME[p & 7] : 'empty'}${tgt ? ', move here' : ''}`);
+    }
+    boardEl.dataset.view = vb ? 'black' : 'white';
+    renderArrows();
+  }
+
+  function captured(bp = pos) {
+    const count = [{}, {}];
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) { s += 7; continue; }
+      const p = bp.at(s);
+      if (p) count[colorOf(p)][p & 7] = (count[colorOf(p)][p & 7] || 0) + 1;
+    }
+    const lost = [[], []], mat = [0, 0];
+    for (const c of [0, 1]) {
+      for (const t of [5, 4, 3, 2, 1]) {
+        const n = Math.max(0, START_COUNT[t] - (count[c][t] || 0));
+        for (let k = 0; k < n; k++) lost[c].push(t);
+      }
+      for (const t in count[c]) mat[c] += POINTS[t] * count[c][t];
+    }
+    return { lost, mat };
+  }
+
+  function capsHTML(side) {
+    const { lost, mat } = captured(viewPly == null ? pos : positionAt(viewPly));
+    const took = lost[side ^ 1];
+    const glyphs = took.map((t) => (side ^ 1 ? FILL[t] : LINE[t]) + VS).join('');
+    const lead = mat[side] - mat[side ^ 1];
+    return `<span class="caps" aria-label="Captured pieces">${glyphs ? `<span class="caps-glyphs">${glyphs}</span>` : ''}${lead > 0 ? `+${lead}` : ''}</span>`;
+  }
+  function stripHTML(side) {
+    if (learn.on) {
+      const active = pos.turn === side && learn.node.kids.length > 0 && viewPly == null;
+      if (practising()) {
+        const you = side === learn.side;
+        return `
+      <div class="who">
+        <span class="avatar" aria-hidden="true"><i>${side ? FILL[6] : LINE[6]}${VS}</i></span>
+        <span class="who-text"><span class="who-name">${you ? 'You' : 'Opening book'}</span><span class="who-meta">${COLOR[side]}${you && active ? ' \u00B7 play from memory' : ''}</span></span>
+      </div>${capsHTML(side)}${active ? `<span class="clock on">${you ? '' : '<span class="pulse" aria-hidden="true"></span>'}<span class="tag">${you ? 'Your move' : 'Replying'}</span></span>` : ''}`;
+      }
+      return `
+      <div class="who">
+        <span class="avatar" aria-hidden="true"><i>${side ? FILL[6] : LINE[6]}${VS}</i></span>
+        <span class="who-text"><span class="who-name">${COLOR[side]}</span><span class="who-meta">${active ? 'Choose a highlighted move' : 'Opening explorer'}</span></span>
+      </div>${capsHTML(side)}${active ? '<span class="clock on"><span class="tag">To move</span></span>' : ''}`;
+    }
+    const isHuman = side === state.human;
+    const kind = opponentKind();
+    const name = isHuman ? 'You' : kind === 'claude' ? 'Claude' : 'Built-in engine';
+    const meta = isHuman ? COLOR[side]
+      : COLOR[side] + ' · ' + (kind === 'claude' ? PACES[settings.pace].label + ' pace' : settings.level + ' Elo');
+    const active = !state.over && pos.turn === side;
+    const thinking = active && think;
+    const tag = thinking ? (think.who === 'claude' ? 'Thinking' : 'Calculating') : active && isHuman ? 'Your move' : active && state.manualTurn ? 'Your choice' : '';
+    return `
+      <div class="who">
+        <span class="avatar" aria-hidden="true"><i>${side ? FILL[6] : LINE[6]}${VS}</i></span>
+        <span class="who-text"><span class="who-name">${name}</span><span class="who-meta">${meta}</span></span>
+      </div>
+      ${capsHTML(side)}
+      <span class="clock${active ? ' on' : ''}" data-side="${side}">${thinking ? '<span class="pulse" aria-hidden="true"></span>' : ''}${tag ? `<span class="tag">${tag}</span>` : ''}<span class="t">${fmtClock(clockValue(side))}</span></span>`;
+  }
+  function renderStrips() {
+    const top = viewBlack() ? 0 : 1;
+    $('#strip-top').innerHTML = stripHTML(top);
+    $('#strip-bottom').innerHTML = stripHTML(top ^ 1);
+  }
+  function tickClocks() {
+    document.querySelectorAll('.clock').forEach((el) => {
+      const t = el.querySelector('.t');
+      if (t) t.textContent = fmtClock(clockValue(+el.dataset.side));
+    });
+  }
+  setInterval(tickClocks, 500);
+
+  function resultText() {
+    const o = state.over;
+    if (!o) return null;
+    const opp = opponentName();
+    const score = o.winner === 0 ? '1–0' : o.winner === 1 ? '0–1' : '½–½';
+    const details = {
+      checkmate: o.winner === state.human ? 'Checkmate. Well played.' : 'Checkmate.',
+      resign: 'You resigned.',
+      stalemate: 'Stalemate: no legal moves, but no check.',
+      fifty: 'Fifty moves without a capture or a pawn move.',
+      repetition: 'The same position came up three times.',
+      material: 'Neither side has enough material left to mate.',
+    };
+    const title = o.winner == null ? 'Draw' : o.winner === state.human ? 'You win' : `${opp} wins`;
+    return { score, title, detail: details[o.reason] };
+  }
+  function renderResult() {
+    const r = resultText();
+    const show = !!r && !state.resultHidden;
+    $('#result').hidden = !show;
+    if (!r) return;
+    $('#result-score').textContent = r.score;
+    $('#result-title').textContent = r.title;
+    $('#result-detail').textContent = r.detail;
+    $('#result-saved').hidden = !state.saveNote;
+    $('#result-saved').textContent = state.saveNote;
+  }
+
+  function renderSheet() {
+    const box = $('#sheet-scroll');
+    const n = state.moves.length;
+    $('#sheet-count').textContent = n ? `${Math.ceil(n / 2)} move${Math.ceil(n / 2) === 1 ? '' : 's'}` : '';
+    if (!n) {
+      box.innerHTML = `<p class="sheet-empty">${learn.on ? 'Play one of the highlighted moves to start.' : state.human === 0 ? 'White moves first. Drag a piece or tap it, then tap a highlighted square.' : `${opponentName()} has White and moves first.`}</p>`;
+      return;
+    }
+    const cell = (i) => {
+      const mv = state.moves[i];
+      if (!mv) return '<td></td>';
+      const cls = [i === n - 1 ? 'cur' : '', mv.by === 'standin' ? 'stand-in' : '', viewPly === i + 1 ? 'viewing' : ''].filter(Boolean).join(' ');
+      const title = mv.by === 'standin' ? ' title="Played by the built-in engine for Claude"' : '';
+      return `<td class="${cls}"${title}><button class="mv" type="button" data-ply="${i + 1}" aria-label="Show the position after ${moveLabel(i)}">${figurine(mv.san)}</button></td>`;
+    };
+    let rows = '';
+    for (let i = 0; i < n; i += 2) rows += `<tr><td class="n">${(i >> 1) + 1}.</td>${cell(i)}${cell(i + 1)}</tr>`;
+    const r = resultText();
+    const standIn = state.moves.some((mv) => mv.by === 'standin');
+    box.innerHTML = `<table><thead><tr><th scope="col"><span class="sr">Move</span></th><th scope="col">White</th><th scope="col">Black</th></tr></thead><tbody>${rows}</tbody></table>` +
+      (r || standIn ? `<div class="sheet-foot"><span>${standIn ? 'Dotted moves were played by the engine for Claude.' : ''}</span>${r ? `<span class="score">${r.score}</span>` : ''}</div>` : '');
+    const viewed = viewPly != null && box.querySelector('td.viewing');
+    if (viewed) {
+      // Scroll only the scoresheet box; scrollIntoView would also scroll the page away from the board.
+      const head = box.querySelector('thead');
+      const br = box.getBoundingClientRect(), vr = viewed.getBoundingClientRect();
+      const top = br.top + (head ? head.offsetHeight : 0);
+      if (vr.top < top) box.scrollTop -= top - vr.top;
+      else if (vr.bottom > br.bottom) box.scrollTop += vr.bottom - br.bottom;
+    }
+    else if (viewPly == null) box.scrollTop = box.scrollHeight;
+  }
+
+  function renderTalk() {
+    const kind = opponentKind();
+    $('#talk-title').textContent = kind === 'claude' ? 'Claude' : 'Built-in engine';
+    const bubble = $('#talk-bubble');
+    bubble.hidden = !talk.comment;
+    bubble.textContent = talk.comment;
+    $('#talk-when').textContent = talk.comment ? talk.after : '';
+
+    let note = talk.note, actions = talk.actions, warn = talk.warn, busy = false;
+    if (think && think.who === 'claude') {
+      note = claude.status === 'pending' ? 'Connecting to Claude…' : `Claude is thinking at ${PACES[settings.pace].label.toLowerCase()} pace…`;
+      actions = ['stop']; warn = false; busy = true;
+    } else if (think && think.who === 'engine') {
+      note = talk.note || (think.standIn ? 'The engine is moving for Claude…' : 'The engine is calculating…');
+      actions = []; busy = true;
+    } else if (!note) {
+      if (state.over) note = resultText().title + '. ' + resultText().detail;
+      else if (pos.turn === state.human) note = state.moves.length ? 'Your move.' : `You have ${COLOR[state.human]}. Make your first move.`;
+      else if (state.manualTurn) {
+        const who = kind === 'claude' ? 'Claude' : 'the engine';
+        note = `${COLOR[pos.turn]} to move. Make ${COLOR[pos.turn]}\u2019s move yourself on the board, or let ${who} play it.`;
+        actions = kind === 'claude' ? ['ask', 'engine'] : ['go'];
+      }
+      else if (kind === 'claude') { note = 'Claude has the move.'; actions = ['ask', 'engine']; }
+      else { note = 'The engine has the move.'; actions = ['go']; }
+    }
+    // Best-move hint: offered whenever you can move in Play mode.
+    if (!think && !state.over && !learn.on && canMove()) {
+      if (hintBusy) { note = 'Looking for the best move\u2026'; busy = true; warn = false; }
+      else if (state.hint && state.hint.fen === pos.fen()) { note = `Best move here: ${state.hint.san}. The orange arrow shows it on the board.`; warn = false; }
+      else if (!actions.includes('hint')) actions = [...actions, 'hint'];
+    }
+    const noteEl = $('#talk-note');
+    noteEl.className = 'talk-note' + (warn ? ' warn' : '');
+    noteEl.innerHTML = (busy ? '<span class="pulse" aria-hidden="true"></span>' : '');
+    noteEl.append(note);
+    const box = $('#talk-actions');
+    box.innerHTML = '';
+    box.hidden = !actions.length;
+    const labels = { hint: ['Show best move', ''], ask: ['Ask Claude to move', 'primary'], engine: ['Let the engine move', ''], stop: ['Stop', ''], go: ['Engine, move', 'primary'] };
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn ' + labels[a][1];
+      b.textContent = labels[a][0];
+      b.dataset.action = a;
+      box.appendChild(b);
+    }
+  }
+  let hintBusy = false;
+  async function requestHint() {
+    if (hintBusy || learn.on || !canMove()) return;
+    const fen = pos.fen();
+    hintBusy = true;
+    state.hintsUsed++;
+    save();
+    renderTalk();
+    const uci = await runEngine(fen, { timeMs: 1500 });
+    hintBusy = false;
+    if (learn.on || pos.fen() !== fen) { renderTalk(); return; }
+    const m = uci ? pos.find(uci) : 0;
+    if (m) state.hint = { uci, san: pos.san(m), fen };
+    renderBoard();
+    renderTalk();
+    if (m) announce(`Best move: ${state.hint.san}.`);
+  }
+  $('#talk-actions').addEventListener('click', (e) => {
+    const a = e.target.closest('button')?.dataset.action;
+    if (!a) return;
+    if (a === 'hint') { requestHint(); return; }
+    if (a === 'stop') {
+      cancelThinking();
+      talk.note = 'Stopped. Claude still has the move.'; talk.warn = false; talk.actions = ['ask', 'engine'];
+      renderAll();
+    } else if (a === 'ask') {
+      talk.note = ''; talk.actions = [];
+      opponentTurn();
+    } else if (a === 'engine' || a === 'go') {
+      if (state.over || pos.turn === state.human) return;
+      cancelThinking();
+      talk.note = ''; talk.actions = [];
+      engineMove(token, settings.level, a === 'engine');
+    }
+  });
+
+  function renderControls() {
+    const kind = opponentKind();
+    $('#setup-now').textContent = `${settings.color === 'random' ? 'Random colour' : COLOR[settings.color === 'black' ? 1 : 0]} \u00B7 ${kind === 'claude' ? 'Claude, ' + PACES[settings.pace].label : 'Engine ' + settings.level + ' Elo'}`;
+    $('#history-hint').hidden = gamesSaved == null;
+    if (gamesSaved != null) $('#history-hint').textContent = `${gamesSaved} finished game${gamesSaved === 1 ? '' : 's'} saved to your game history. Games where you take back a move are not saved.`;
+    $('#matchup').textContent = `You have ${COLOR[state.human]}. ${kind === 'claude' ? 'Claude' : 'The built-in engine'} plays ${COLOR[state.human ^ 1]}.`;
+    $('#btn-undo').disabled = !state.moves.length;
+    $('#opt-first').checked = !!settings.chooseFirst;
+    $('#btn-resign').disabled = !!state.over || !state.moves.length;
+    $('#btn-pgn').disabled = !state.moves.length;
+    const off = claude.status === 'off';
+    $('#opp-claude').closest('fieldset').hidden = STANDALONE;
+    $('#btn-export').hidden = !STANDALONE || !gamesSaved;
+    $('#opp-claude').disabled = off;
+    $('#opp-hint').textContent = off
+      ? 'Claude can’t play in this view (it needs a signed-in claude.ai viewer and your permission). The built-in engine plays instead.'
+      : 'Claude reads the position and picks each move itself. Its moves use your Claude usage.';
+    $('#pace-field').hidden = settings.opponent !== 'claude' || off;
+    $('#level-field').hidden = kind !== 'engine';
+    document.querySelector(`input[name="opponent"][value="${off ? 'engine' : settings.opponent}"]`).checked = true;
+    $('#level').value = settings.level;
+    $('#level-out').textContent = settings.level;
+    $('#level-word').textContent = LEVELS[settings.level].word;
+    for (const k of ['color', 'pace']) {
+      const el = document.querySelector(`input[name="${k}"][value="${settings[k]}"]`);
+      if (el) el.checked = true;
+    }
+  }
+
+  function renderReview() {
+    const n = state.moves.length, ply = shownPly();
+    $('#nav-first').disabled = $('#nav-prev').disabled = ply === 0;
+    $('#nav-next').disabled = $('#nav-last').disabled = viewPly == null;
+    $('#nav-live').hidden = viewPly == null;
+    $('#review-label').innerHTML = viewPly == null
+      ? (n ? 'Current position' : '')
+      : ply === 0 ? '<strong>Viewing</strong> the starting position'
+      : `<strong>Viewing</strong> after ${moveLabel(ply - 1)} (${ply} of ${n})`;
+  }
+  $('#nav-first').addEventListener('click', () => setView(0));
+  $('#nav-prev').addEventListener('click', () => setView(shownPly() - 1));
+  $('#nav-next').addEventListener('click', () => setView(shownPly() + 1));
+  $('#nav-last').addEventListener('click', () => setView(null));
+  $('#nav-live').addEventListener('click', () => setView(null));
+  $('#sheet-scroll').addEventListener('click', (e) => {
+    const b = e.target.closest('.mv');
+    if (b) setView(+b.dataset.ply);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const t = e.target;
+    if (t.closest && (t.closest('#board') || t.closest('input, textarea, select'))) return;
+    const steps = { ArrowLeft: () => setView(shownPly() - 1), ArrowRight: () => setView(shownPly() + 1), Home: () => setView(0), End: () => setView(null) };
+    if (!steps[e.key] || !state.moves.length) return;
+    e.preventDefault();
+    steps[e.key]();
+  });
+
+  function renderAll() {
+    renderBoard();
+    renderStrips();
+    renderSheet();
+    renderTalk();
+    renderControls();
+    renderResult();
+    renderReview();
+    renderLearn();
+  }
+
+  // ---------- opening explorer ----------
+  function allCandidates() {
+    if (!learn.on || !learn.node) return [];
+    const legal = pos.legal();
+    return learn.node.kids.map((k) => ({ k, m: pos.find(k.san, legal) })).filter((c) => c.m);
+  }
+  // When practising one chosen line, only the move on that line counts.
+  const onTargetPath = (k) => !learn.target || learn.target.key === k.key || learn.target.key.startsWith(k.key + ' ');
+  function candidates() {
+    const all = allCandidates();
+    return practising() && learn.target ? all.filter((c) => onTargetPath(c.k)) : all;
+  }
+  const shortName = (name) => (name.includes(': ') ? name.slice(name.indexOf(': ') + 2) : name);
+  function lineName(node) {
+    for (let n = node; n; n = n.parent) if (n.name) return shortName(n.name);
+    return OPENINGS[learn.opening].name;
+  }
+  // Full name of a line from the opening down, e.g. "Ruy Lopez – Morphy Defence – Closed – Chigorin Variation".
+  function fullName(node) {
+    const opening = OPENINGS[learn.opening].name;
+    const names = [];
+    for (let n = node; n; n = n.parent) if (n.name) names.unshift(n.name);
+    const parts = [opening];
+    for (let name of names) {
+      if (name === opening) continue;
+      name = name.includes(': ') ? name.slice(name.indexOf(': ') + 2) : name;
+      const bare = name.endsWith(' ' + opening) ? name.slice(0, -opening.length).trim() : name;
+      if (bare !== name && !bare.includes(' ')) name = bare + ' Variation'; // "Closed Ruy Lopez" -> "Closed Variation"
+      else name = bare;
+      if (!name || parts.includes(name)) continue;
+      const last = parts[parts.length - 1];
+      if (name.startsWith(last + ' ')) parts[parts.length - 1] = name; // "Evans Gambit" -> "Evans Gambit Declined"
+      else parts.push(name);
+    }
+    return parts.join(' – ');
+  }
+  function clearLearnTimer() { clearTimeout(learn.timer); learn.timer = null; }
+  function enterLearn(path) {
+    if (learn.on) return;
+    cancelThinking();
+    stopClock();
+    learn.stash = snapshot();
+    learn.on = true;
+    clearLearnTimer();
+    pos.load(pos.START);
+    state.moves = []; state.keys = [pos.key()];
+    state.over = null; viewPly = null; selected = -1; targets = []; promoChoices = null;
+    $('#promo').hidden = true;
+    learn.node = learn.root;
+    for (const u of path || []) {
+      const c = candidates().find((x) => pos.uci(x.m) === u);
+      if (!c) break;
+      learnPlay(c.m, true);
+    }
+    renderAll();
+    save();
+    bookReply();
+  }
+  function exitLearn() {
+    if (!learn.on) return;
+    stopExplain();
+    clearLearnTimer();
+    const stash = learn.stash;
+    learn.on = false; learn.stash = null; learn.node = null; learn.hover = -1;
+    viewPly = null;
+    if (!restore(stash)) newGame(false);
+    renderAll();
+    save();
+    if (!state.over && pos.turn !== state.human && opponentKind() === 'engine' && !state.manualTurn) opponentTurn();
+  }
+  function learnPlay(m, quiet) {
+    const c = candidates().find((x) => x.m === m);
+    if (!c) {
+      if (practising() && pos.turn === learn.side && !quiet) {
+        const san = pos.san(m);
+        learn.mistakes++;
+        learn.wrong = [pos.from(m), pos.to(m)];
+        const otherLine = learn.target && allCandidates().some((x) => x.m === m);
+        if (otherLine) learn.mistakes--; // a real book move, just not the chosen line
+        learn.feedback = { bad: true, text: otherLine
+          ? `${san} is a book move, but the line you chose goes another way. Try again${learn.hint < 2 ? ', or ask for a hint' : ''}.`
+          : `${san} isn\u2019t a book move here. Try again${learn.hint < 2 ? ', or ask for a hint' : ''}.` };
+        selected = -1; targets = [];
+        setTimeout(() => { learn.wrong = null; if (learn.on) renderBoard(); }, 700);
+        renderBoard(); renderLearn();
+        announce(learn.feedback.text);
+        return;
+      }
+      renderBoard();
+      return;
+    }
+    if (practising() && pos.turn === learn.side && !quiet) {
+      learn.feedback = { bad: false, text: `${pos.san(m)} \u2713 Correct.` };
+    }
+    learn.hint = 0;
+    stopExplain();
+    const san = pos.san(m), uci = pos.uci(m);
+    pos.make(m);
+    state.moves.push({ uci, san, by: 'book', comment: '' });
+    state.keys.push(pos.key());
+    learn.node = c.k; learn.hover = -1;
+    selected = -1; targets = []; viewPly = null;
+    if (quiet) return;
+    if (practising() && !learn.node.kids.length) {
+      learn.completed++;
+      const fresh = markLine(learn.node.key, true);
+      const tot = statsFor();
+      tot.mistakes += learn.mistakes; tot.hints += learn.hints; tot.lines++;
+      persistProgress();
+      const leaves = leavesOf(learn.root), allDone = leaves.every((l) => doneSet().has(l.key));
+      learn.feedback = { bad: false, text: `Line complete: ${fullName(learn.node)}. ${learn.mistakes ? learn.mistakes + ' mistake' + (learn.mistakes === 1 ? '' : 's') : 'No mistakes'}${learn.hints ? ', ' + learn.hints + ' hint' + (learn.hints === 1 ? '' : 's') : ''}.${fresh ? ' \u2713 Checked off.' : ''}` +
+        (fresh && allDone ? ` All ${leaves.length} lines done: ${countText(tot.mistakes, 'mistake')} and ${countText(tot.hints, 'hint')} overall.` : '') };
+    }
+    renderAll();
+    save();
+    announce(`${san}. ${learn.feedback && practising() ? learn.feedback.text + ' ' : ''}${c.k.note || ''}`);
+    bookReply();
+  }
+  // ---------- line tree: every fork of the current opening, with progress ----------
+  const PROGRESS_STORE = 'chess-with-claude:lines';
+  const doneLines = {}; // opening key -> Set of leaf keys
+  try {
+    const raw = JSON.parse(localStorage.getItem(PROGRESS_STORE) || '{}');
+    for (const k in raw) if (Array.isArray(raw[k])) doneLines[k] = new Set(raw[k].map(String));
+  } catch (_) {}
+  const doneSet = (op = learn.opening) => doneLines[op] || (doneLines[op] = new Set());
+  let progressWrite = Promise.resolve();
+  // Running totals of mistakes and hints over finished lines, per opening, since the last reset.
+  const STATS_STORE = 'chess-with-claude:lineStats';
+  const lineStats = {};
+  const cleanStats = (v) => ({ mistakes: Math.max(0, +v.mistakes || 0), hints: Math.max(0, +v.hints || 0), lines: Math.max(0, +v.lines || 0) });
+  try {
+    const raw = JSON.parse(localStorage.getItem(STATS_STORE) || '{}');
+    for (const k in raw) if (raw[k] && typeof raw[k] === 'object') lineStats[k] = cleanStats(raw[k]);
+  } catch (_) {}
+  const statsFor = (op = learn.opening) => lineStats[op] || (lineStats[op] = { mistakes: 0, hints: 0, lines: 0 });
+  const countText = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  function persistProgress() {
+    const out = {};
+    for (const k in doneLines) out[k] = [...doneLines[k]];
+    try { localStorage.setItem(PROGRESS_STORE, JSON.stringify(out)); } catch (_) {}
+    try { localStorage.setItem(STATS_STORE, JSON.stringify(lineStats)); } catch (_) {}
+    const stats = JSON.parse(JSON.stringify(lineStats));
+    progressWrite = progressWrite.then(async () => {
+      const db = await dbPromise;
+      if (db) await db.doc('progress/lines').set({ byOpening: out, stats, updatedAt: new Date().toISOString() });
+    }).catch(() => {});
+  }
+  dbPromise.then((db) => {
+    if (!db) return;
+    db.doc('progress/lines').get().then((snap) => {
+      const remote = snap.exists ? (snap.data().byOpening || {}) : {};
+      const remoteStats = snap.exists ? (snap.data().stats || {}) : {};
+      let added = false;
+      for (const k in remoteStats) {
+        if (remoteStats[k] && typeof remoteStats[k] === 'object' && !(lineStats[k] && lineStats[k].lines)) { lineStats[k] = cleanStats(remoteStats[k]); added = true; }
+      }
+      for (const k in remote) {
+        if (!Array.isArray(remote[k])) continue;
+        for (const key of remote[k]) if (!doneSet(k).has(String(key))) { doneSet(k).add(String(key)); added = true; }
+      }
+      if (added) { persistProgress(); renderLineTree(); }
+    }, () => {});
+  });
+  function markLine(key, on) {
+    const set = doneSet();
+    if (on === set.has(key)) return false;
+    if (on) set.add(key); else set.delete(key);
+    persistProgress();
+    return true;
+  }
+  function leavesOf(node, out = []) {
+    if (!node.kids.length) out.push(node);
+    for (const k of node.kids) leavesOf(k, out);
+    return out;
+  }
+  function nextLine(current) {
+    const leaves = leavesOf(learn.root), set = doneSet();
+    const start = Math.max(0, leaves.indexOf(current));
+    for (let i = 1; i <= leaves.length; i++) {
+      const l = leaves[(start + i) % leaves.length];
+      if (!set.has(l.key)) return l;
+    }
+    return null;
+  }
+  // A segment runs from a fork to the next fork (or the end of a line).
+  function segment(node) {
+    const nodes = [node];
+    while (nodes[nodes.length - 1].kids.length === 1) nodes.push(nodes[nodes.length - 1].kids[0]);
+    const end = nodes[nodes.length - 1];
+    return { nodes, end, kids: end.kids.map(segment) };
+  }
+  function segMoves(nodes) {
+    const shown = nodes.slice(0, 3).map((n, i) => {
+      const p = n.ply - 1;
+      return (p % 2 === 0 ? `${(p >> 1) + 1}.` : i === 0 ? `${(p >> 1) + 1}…` : '') + n.san;
+    });
+    return shown.join(' ') + (nodes.length > 3 ? ' …' : '');
+  }
+  function segName(seg) {
+    for (let i = seg.nodes.length - 1; i >= 0; i--) if (seg.nodes[i].name) return shortName(seg.nodes[i].name);
+    return '';
+  }
+  function renderLineTree() {
+    const card = $('#ltree');
+    const show = practising();
+    card.hidden = !show;
+    if (!show) return;
+    const leaves = leavesOf(learn.root), set = doneSet();
+    const nDone = leaves.filter((l) => set.has(l.key)).length;
+    $('#ltree-count').textContent = `${nDone} of ${leaves.length} done`;
+    $('#ltree-bar').style.width = (leaves.length ? (100 * nDone) / leaves.length : 0) + '%';
+    $('#ltree-any').hidden = !learn.target;
+    $('#ltree-hint').textContent = learn.target
+      ? `Practising one line: ${fullName(learn.target)}. The book will steer into it.`
+      : nDone === leaves.length
+        ? 'All lines are checked off, so the book plays any line again. Press Reset to start over.'
+        : 'The book only plays lines you haven\u2019t checked off yet. Click a line to practise just that one. Lines tick themselves off when you finish them, or you can tick them yourself.';
+    const tot = statsFor(), statsEl = $('#ltree-stats');
+    const allDone = leaves.length > 0 && nDone === leaves.length && tot.lines > 0;
+    statsEl.className = 'ltree-stats' + (allDone ? ' all' : '');
+    statsEl.textContent = allDone
+      ? `All ${leaves.length} lines done: ${countText(tot.mistakes, 'mistake')} and ${countText(tot.hints, 'hint')} overall.`
+      : tot.lines ? `Since the last reset: ${countText(tot.lines, 'line')} finished \u00B7 ${countText(tot.mistakes, 'mistake')} \u00B7 ${countText(tot.hints, 'hint')}` : 'Mistakes and hints add up here as you finish lines.';
+    $('#ltree-reset').disabled = nDone === 0 && !tot.lines;
+    const here = learn.node;
+    const html = (seg, isMain) => {
+      const leaf = !seg.kids.length;
+      const name = segName(seg);
+      const isHere = seg.nodes.includes(here);
+      const nm = name ? `<span class="lnm">${escapeHTML(name)}</span>` : (isMain ? '<span class="lnm plain">main line</span>' : '');
+      const mv = `<span class="lmv">${escapeHTML(segMoves(seg.nodes))}</span>`;
+      if (leaf) {
+        const key = seg.end.key, done = set.has(key), target = learn.target === seg.end;
+        return `<li><div class="lrow leaf${done ? ' done' : ''}${target ? ' target' : ''}${isHere ? ' here' : ''}">` +
+          `<input type="checkbox" data-key="${escapeHTML(key)}" ${done ? 'checked' : ''} aria-label="Mark ${escapeHTML(fullName(seg.end))} as done">` +
+          `<button type="button" class="lgo" data-key="${escapeHTML(key)}" title="Practise ${escapeHTML(fullName(seg.end))}"><span class="ltext">${nm}${mv}</span></button></div></li>`;
+      }
+      const ls = leavesOf(seg.end), d = ls.filter((l) => set.has(l.key)).length;
+      return `<li><details open><summary class="lrow${isHere ? ' here' : ''}"><span class="caret" aria-hidden="true">▶</span><span class="ltext">${nm}${mv}</span>` +
+        `<span class="lprog${d === ls.length ? ' full' : ''}">${d}/${ls.length}</span></summary>` +
+        `<ul>${seg.kids.map((k, i) => html(k, i === 0)).join('')}</ul></details></li>`;
+    };
+    const body = $('#ltree-body');
+    const keep = body.scrollTop;
+    body.innerHTML = `<ul class="ltree">${learn.root.kids.map(segment).map((sg, i) => html(sg, i === 0)).join('')}</ul>`;
+    body.scrollTop = keep;
+  }
+  function findNode(key, node = learn.root) {
+    if (node.key === key) return node;
+    for (const k of node.kids) if (key === k.key || key.startsWith(k.key + ' ')) return findNode(key, k);
+    return null;
+  }
+  $('#ltree-body').addEventListener('change', (e) => {
+    const cb = e.target.closest('input[type="checkbox"]');
+    if (!cb) return;
+    markLine(cb.dataset.key, cb.checked);
+    renderLineTree();
+  });
+  $('#ltree-body').addEventListener('click', (e) => {
+    const b = e.target.closest('.lgo');
+    if (!b) return;
+    const node = findNode(b.dataset.key);
+    if (!node) return;
+    startLine(node);
+  });
+  // Practise one line, starting at the fork where it branches off: the shared moves before it are played for you.
+  function startLine(leaf) {
+    learn.target = leaf;
+    learnRestart();
+    if (!leaf) return;
+    clearLearnTimer();
+    let start = leaf;
+    while (start.parent && start.parent.parent && start.parent.kids.length === 1) start = start.parent;
+    const path = [];
+    for (let n = start.parent; n && n.parent; n = n.parent) path.unshift(n);
+    for (const n of path) {
+      const c = allCandidates().find((x) => x.k === n);
+      if (!c) break;
+      learnPlay(c.m, true);
+    }
+    if (state.moves.length) {
+      learn.feedback = { bad: false, text: `Set up at the branch point after ${moveLabel(state.moves.length - 1)}. ${pos.turn === learn.side ? 'Your next move takes the game into this line.' : 'The book plays the move into this line.'}` };
+    }
+    renderAll();
+    save();
+    bookReply();
+  }
+  $('#ltree-any').addEventListener('click', () => { learn.target = null; learnRestart(); });
+  let resetTimer = null;
+  const disarmReset = () => { clearTimeout(resetTimer); const b = $('#ltree-reset'); b.classList.remove('armed'); b.textContent = 'Reset'; };
+  $('#ltree-reset').addEventListener('click', () => {
+    const b = $('#ltree-reset');
+    if (!b.classList.contains('armed')) {
+      b.classList.add('armed');
+      b.textContent = 'Uncheck all?';
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(disarmReset, 3500);
+      return;
+    }
+    disarmReset();
+    doneSet().clear();
+    delete lineStats[learn.opening];
+    persistProgress();
+    learn.feedback = { bad: false, text: `Practice reset: all ${OPENINGS[learn.opening].name} lines are unchecked.` };
+    renderLearn();
+    announce(learn.feedback.text);
+  });
+
+  // In practice mode the book answers for the other side, picking lines in proportion to how many branches follow.
+  function bookReply() {
+    if (!practising() || learn.timer || pos.turn === learn.side || !learn.node.kids.length || viewPly != null) return;
+    learn.timer = setTimeout(() => {
+      learn.timer = null;
+      if (!practising() || pos.turn === learn.side) return;
+      const cands = candidates();
+      if (!cands.length) return;
+      // Steer towards lines not yet checked off, in proportion to how many remain under each move.
+      const set = doneSet();
+      let weights = cands.map((c) => leavesOf(c.k).filter((l) => !set.has(l.key)).length);
+      if (!weights.some((w) => w > 0)) weights = cands.map((c) => c.k.lines);
+      let r = Math.random() * weights.reduce((a, w) => a + w, 0);
+      let pick = cands[0];
+      for (let i = 0; i < cands.length; i++) { r -= weights[i]; if (weights[i] > 0 && r <= 0) { pick = cands[i]; break; } }
+      const fb = learn.feedback;
+      learnPlay(pick.m);
+      if (fb && !fb.bad && learn.node.kids.length) { learn.feedback = fb; renderLearn(); }
+    }, 650);
+    renderStrips();
+  }
+  function practiceMarks() {
+    const marks = new Map();
+    if (!practising() || viewPly != null) return marks;
+    if (learn.wrong) { marks.set(learn.wrong[0], 'wrong'); marks.set(learn.wrong[1], 'wrong'); }
+    else if (learn.hint >= 1 && pos.turn === learn.side) for (const c of candidates()) marks.set(pos.from(c.m), 'hintsq');
+    return marks;
+  }
+  function learnRestart() {
+    stopExplain();
+    clearLearnTimer();
+    while (state.moves.length) { pos.unmake(); state.moves.pop(); state.keys.pop(); }
+    learn.node = learn.root; viewPly = null; selected = -1; targets = [];
+    learn.hint = 0; learn.mistakes = 0; learn.hints = 0; learn.feedback = null; learn.wrong = null;
+    renderAll();
+    save();
+    bookReply();
+  }
+  function learnBack() {
+    if (!learn.on || !state.moves.length) return;
+    stopExplain();
+    clearLearnTimer();
+    const undo = () => { pos.unmake(); state.moves.pop(); state.keys.pop(); learn.node = learn.node.parent; };
+    undo();
+    if (practising()) while (state.moves.length && pos.turn !== learn.side) undo();
+    learn.hover = -1; learn.hint = 0; learn.feedback = null; learn.wrong = null;
+    selected = -1; targets = []; viewPly = null;
+    renderAll();
+    save();
+    bookReply();
+  }
+  function renderArrows() {
+    const svg = $('#arrows');
+    if (!learn.on) {
+      const h = state.hint;
+      if (!h || viewPly != null || h.fen !== pos.fen()) { svg.innerHTML = ''; return; }
+      const vb = viewBlack();
+      const c = (sq) => [((vb ? 7 - (sq & 7) : sq & 7)) + 0.5, (vb ? sq >> 4 : 7 - (sq >> 4)) + 0.5];
+      const [x1, y1] = c(pos.sqFrom(h.uci.slice(0, 2))), [x2, y2] = c(pos.sqFrom(h.uci.slice(2, 4)));
+      const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+      const tx = x2 - ux * 0.18, ty = y2 - uy * 0.18, bx = tx - ux * 0.36, by = ty - uy * 0.36, half = 0.21;
+      svg.innerHTML = `<g class="a hot"><line x1="${x1 + ux * 0.2}" y1="${y1 + uy * 0.2}" x2="${bx}" y2="${by}" stroke-width="0.15"></line>` +
+        `<polygon points="${tx},${ty} ${bx - uy * half},${by + ux * half} ${bx + uy * half},${by - ux * half}"></polygon></g>`;
+      return;
+    }
+    if (viewPly != null || (practising() && (pos.turn !== learn.side || learn.hint < 2))) { svg.innerHTML = ''; return; }
+    const vb = viewBlack();
+    const center = (sq) => {
+      const f = sq & 7, r = sq >> 4;
+      return [(vb ? 7 - f : f) + 0.5, (vb ? r : 7 - r) + 0.5];
+    };
+    const cands = candidates();
+    const order = cands.map((c, i) => i).sort((a, b) => (a === learn.hover) - (b === learn.hover) || b - a);
+    let out = '';
+    for (const i of order) {
+      const c = cands[i];
+      const [x1, y1] = center(pos.from(c.m)), [x2, y2] = center(pos.to(c.m));
+      const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+      const tipX = x2 - ux * 0.18, tipY = y2 - uy * 0.18;
+      const head = 0.36, half = 0.21, w = i === 0 ? 0.15 : 0.11;
+      const bx = tipX - ux * head, by = tipY - uy * head;
+      const cls = 'a' + (i === 0 ? ' main' : '') + (i === learn.hover ? ' hot' : '');
+      out += `<g class="${cls}"><line x1="${x1 + ux * 0.2}" y1="${y1 + uy * 0.2}" x2="${bx}" y2="${by}" stroke-width="${w}"></line>` +
+        `<polygon points="${tipX},${tipY} ${bx - uy * half},${by + ux * half} ${bx + uy * half},${by - ux * half}"></polygon>` +
+        `<circle cx="${x1 + ux * 0.2}" cy="${y1 + uy * 0.2}" r="0.17"></circle><text x="${x1 + ux * 0.2}" y="${y1 + uy * 0.2}">${i + 1}</text></g>`;
+    }
+    svg.innerHTML = out;
+  }
+  function renderLearn() {
+    document.querySelectorAll('.play-only').forEach((el) => { el.hidden = learn.on; });
+    $('#coach-card').hidden = !learn.on || claude.status === 'off';
+    $('#learn').hidden = !learn.on;
+    $('#mode-' + (learn.on ? 'learn' : 'play')).checked = true;
+    renderLineTree();
+    if (!learn.on) return;
+    const node = learn.node, ply = state.moves.length;
+    const prac = practising();
+    $('#lmode-' + learn.mode).checked = true;
+    $('#learn-opening').value = learn.opening;
+    $('#lside-' + (learn.side ? 'black' : 'white')).checked = true;
+    $('#lside-seg').hidden = !prac;
+    $('#matchup').textContent = prac
+      ? `Practice \u00B7 ${OPENINGS[learn.opening].name}. You play ${COLOR[learn.side]} from memory; the book answers for ${COLOR[learn.side ^ 1]}.`
+      : `Opening explorer \u00B7 ${OPENINGS[learn.opening].name}. You play the moves for both sides.`;
+    $('#learn-name').textContent = ply && !node.kids.length ? fullName(node) : lineName(node);
+    const note = $('#learn-note');
+    if (!ply) {
+      note.textContent = prac
+        ? `Play ${COLOR[learn.side]}\u2019s book moves from memory. The book replies with a different line each time, so every run tests a new branch. Wrong moves are not played; a hint first marks the piece to move, then shows the moves.`
+        : `The ${OPENINGS[learn.opening].name} starts ${OPENINGS[learn.opening].start}. Play the highlighted moves for both sides. Where the tree forks, each arrow starts a different line, and the numbers match the list below.`;
+    } else {
+      note.innerHTML = `<strong>${moveLabel(ply - 1)}</strong>`;
+      note.append(node.note || 'A standard move in this line.');
+    }
+    const cands = candidates();
+    const num = `${(ply >> 1) + 1}${ply % 2 ? '\u2026' : '.'}`;
+    const fb = $('#feedback');
+    fb.hidden = !(prac && learn.feedback);
+    if (prac && learn.feedback) { fb.className = 'feedback ' + (learn.feedback.bad ? 'bad' : 'good'); fb.textContent = learn.feedback.text; }
+    $('#practice-bar').hidden = !prac;
+    const done = !cands.length;
+    // Explore offers play-on at the end of a line; practice offers it at any point, including a position under review.
+    const at = viewPly != null ? viewPly : ply;
+    const canPlayOn = at > 0 && (done || prac);
+    $('#playon').hidden = !canPlayOn;
+    if (canPlayOn) {
+      const opp = opponentKind() === 'claude' ? 'Claude' : `the built-in engine (${settings.level} Elo)`;
+      const st = learn.stash;
+      const inProgress = st && Array.isArray(st.moves) && st.moves.length && !st.over;
+      const where = viewPly != null ? `the position after ${moveLabel(at - 1)}` : done ? 'this position' : 'here';
+      $('#playon-hint').textContent = `${done && viewPly == null ? 'Play this position out' : `Leave the book and play on from ${where}`} as a real game against ${opp}.${inProgress ? ' This replaces the game you had in progress.' : ''} You can change the opponent in Play mode.`;
+      const primary = prac ? learn.side : 0;
+      $('#playon-white').className = 'btn' + (primary === 0 ? ' primary' : '');
+      $('#playon-black').className = 'btn' + (primary === 1 ? ' primary' : '');
+    }
+    $('#learn-again').hidden = !(prac && done && ply);
+    const hintBtn = $('#learn-hint');
+    hintBtn.textContent = done ? (learn.target ? 'Next unchecked line' : 'Next line') : learn.hint === 0 ? 'Show a hint' : learn.hint === 1 ? 'Show the moves' : 'Hint shown';
+    hintBtn.className = 'btn' + (done ? ' primary' : '');
+    hintBtn.disabled = !done && (pos.turn !== learn.side || learn.hint >= 2 || !!learn.timer);
+    $('#practice-stats').textContent = `Mistakes ${learn.mistakes} \u00B7 Hints ${learn.hints} \u00B7 Lines done ${learn.completed}`;
+    $('#learn-restart').textContent = prac ? 'New line' : 'Restart';
+    const showList = !prac || (learn.hint >= 2 && pos.turn === learn.side);
+    $('#learn-cands').hidden = !showList;
+    $('#learn-ask').textContent = prac && !done
+      ? (pos.turn === learn.side ? `Your move as ${COLOR[learn.side]}.${cands.length > 1 ? ` Any of ${cands.length} book moves counts.` : ''}` : `${COLOR[pos.turn]} is replying\u2026`)
+      : cands.length
+      ? (cands.length > 1 ? `${cands.length} book moves for ${COLOR[pos.turn]}` : `Book move for ${COLOR[pos.turn]}`)
+      : prac ? 'End of the line. Press Next line for another branch.' : 'End of this line in the explorer. From here the game turns into middlegame plans. Go back to try another branch.';
+    $('#learn-cands').innerHTML = cands.map((c, i) => `<li><button type="button" class="cand${i === 0 ? ' main' : ''}${i === learn.hover ? ' hot' : ''}" data-i="${i}">` +
+      `<span class="num">${i + 1}</span><span class="san">${num}${figurine(c.k.san)}</span>` +
+      `<span class="nm">${c.k.name ? escapeHTML(shortName(c.k.name)) : ''}</span>` +
+      `<span>${i === 0 && cands.length > 1 ? '<span class="tag">Main line</span>' : `<span class="lines">${c.k.lines} line${c.k.lines === 1 ? '' : 's'}</span>`}</span></button></li>`).join('');
+    $('#learn-back').disabled = !ply;
+    $('#learn-restart').disabled = !ply;
+    const off = claude.status === 'off';
+    $('#learn-explain').disabled = off || !!learn.ctl;
+    $('#learn-explain').textContent = node.explain ? 'Explain again' : 'Ask Claude to explain';
+    $('#learn-stop').hidden = !learn.ctl;
+    const text = $('#coach-text');
+    if (!learn.ctl) { text.hidden = !node.explain; text.textContent = node.explain || ''; }
+    $('#coach-hint').textContent = off
+      ? 'Claude explanations need a signed-in claude.ai viewer and your permission. The explorer itself works without them.'
+      : 'Claude explains the ideas behind this position. Each explanation uses your Claude usage; moving through the tree is free.';
+  }
+  const escapeHTML = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  function stopExplain() {
+    if (learn.ctl) { learn.ctl.abort(); learn.ctl = null; }
+  }
+  async function explain() {
+    const fn = claude.fn || await samplePromise;
+    if (!fn || !learn.on || learn.ctl) return;
+    const node = learn.node;
+    const cands = candidates().map((c) => c.k.san + (c.k.name ? ` (${c.k.name})` : ''));
+    const prompt = [
+      `You are a friendly chess coach teaching the ${OPENINGS[learn.opening].name}. The student is stepping through the main lines move by move.`,
+      `Line: ${lineName(node)}`,
+      `Moves so far: ${movetext(state.moves) || '(the starting position)'}`,
+      `Position (FEN): ${pos.fen()}`,
+      cands.length ? `Main continuations for ${COLOR[pos.turn]} in our study tree: ${cands.join(', ')}.` : 'This is the end of this line in our study tree.',
+      '',
+      `In 4 to 6 short sentences, explain the idea behind the last move, what each side is aiming for here, and ${cands.length ? 'how the listed continuations differ in spirit' : 'the typical middlegame plans for both sides'}. Be concrete about squares and pieces. Plain text only, no headings or lists, standard algebraic notation.`,
+    ].join('\n');
+    const ctl = new AbortController();
+    learn.ctl = ctl;
+    const text = $('#coach-text');
+    text.hidden = false;
+    text.textContent = 'Claude is thinking\u2026';
+    renderLearn();
+    try {
+      const { text: answer } = await fn(prompt, { modelTier: 'default', effort: 'low', signal: ctl.signal, onText: ({ text: t }) => { if (learn.node === node) text.textContent = t; } });
+      node.explain = answer.trim();
+    } catch (e) {
+      const code = e && e.code;
+      if (OFF_CODES.includes(code)) claude.status = 'off';
+      if (code !== 'cancelled' && learn.node === node) {
+        text.textContent = code === 'rate_limited' ? 'Claude has hit a usage or rate limit. Try again in a little while.'
+          : OFF_CODES.includes(code) ? 'Claude isn\u2019t available here, so explanations are off. The explorer still works.'
+          : 'Claude couldn\u2019t answer that time. Try again.';
+      }
+    } finally {
+      if (learn.ctl === ctl) learn.ctl = null;
+      if (learn.on) renderLearn();
+    }
+  }
+  $('#learn-cands').addEventListener('click', (e) => {
+    const b = e.target.closest('.cand');
+    if (!b) return;
+    const c = candidates()[+b.dataset.i];
+    if (c) { if (viewPly != null) viewPly = null; learnPlay(c.m); }
+  });
+  const setHover = (i) => {
+    if (learn.hover === i) return;
+    learn.hover = i;
+    renderArrows();
+    document.querySelectorAll('.cand').forEach((b) => b.classList.toggle('hot', +b.dataset.i === i));
+  };
+  $('#learn-cands').addEventListener('pointerover', (e) => { const b = e.target.closest('.cand'); if (b) setHover(+b.dataset.i); });
+  $('#learn-cands').addEventListener('pointerleave', () => setHover(-1));
+  $('#learn-cands').addEventListener('focusin', (e) => { const b = e.target.closest('.cand'); if (b) setHover(+b.dataset.i); });
+  $('#learn-cands').addEventListener('focusout', () => setHover(-1));
+  $('#learn-back').addEventListener('click', learnBack);
+  $('#learn-restart').addEventListener('click', learnRestart);
+  function playFromLine(color) {
+    if (!learn.on) return;
+    const upto = viewPly != null ? viewPly : state.moves.length;
+    const moves = state.moves.slice(0, upto).map((mv) => ({ uci: mv.uci, by: 'book', comment: '' }));
+    let node = learn.node;
+    for (let i = state.moves.length; i > upto && node.parent; i--) node = node.parent;
+    const name = fullName(node);
+    stopExplain();
+    clearLearnTimer();
+    learn.on = false; learn.stash = null; learn.node = null; learn.hover = -1;
+    viewPly = null;
+    restore({ moves, human: color, over: null, clock: [0, 0], settings: Object.assign({}, settings, { flipped: false }) });
+    state.fromOpening = name;
+    talk = { comment: '', after: '', note: `Playing on from the ${name}. You have ${COLOR[color]}.`, warn: false, actions: [] };
+    renderAll();
+    save();
+    announce(talk.note);
+    if (!state.over && pos.turn !== state.human) opponentTurn();
+  }
+  $('#playon-white').addEventListener('click', () => playFromLine(0));
+  $('#playon-black').addEventListener('click', () => playFromLine(1));
+  $('#learn-opening').addEventListener('change', (e) => {
+    if (!OPENINGS[e.target.value]) return;
+    learn.opening = e.target.value;
+    learn.root = bookRoot(learn.opening);
+    learn.side = OPENINGS[learn.opening].side || 0; // practise a defence as Black by default
+    learn.target = null;
+    learnRestart();
+  });
+  // Repeat the line just finished from move 1, with the book steering into it.
+  $('#learn-again').addEventListener('click', () => {
+    if (!practising() || learn.node.kids.length) return;
+    learn.target = learn.node;
+    learnRestart();
+    learn.feedback = { bad: false, text: `Again: ${fullName(learn.target)}. The book will steer into the same line.` };
+    renderLearn();
+  });
+  $('#learn-hint').addEventListener('click', () => {
+    if (!practising()) return;
+    if (!learn.node.kids.length) { if (learn.target) { startLine(nextLine(learn.target)); return; } learnRestart(); return; }
+    if (pos.turn !== learn.side || learn.hint >= 2) return;
+    learn.hint++;
+    if (learn.hint === 1) learn.hints++;
+    learn.wrong = null;
+    renderBoard(); renderLearn();
+  });
+  document.querySelectorAll('input[name="lmode"], input[name="lside"]').forEach((input) => input.addEventListener('change', () => {
+    if (input.name === 'lmode') { learn.mode = input.value; learn.target = null; } else learn.side = +input.value;
+    settings.flipped = false;
+    learnRestart();
+  }));
+  $('#learn-flip').addEventListener('click', () => { settings.flipped = !settings.flipped; renderAll(); save(); });
+  $('#learn-explain').addEventListener('click', explain);
+  $('#learn-stop').addEventListener('click', () => { stopExplain(); $('#coach-text').textContent = 'Stopped.'; renderLearn(); });
+  document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', () => {
+    if (input.value === 'learn') enterLearn([]); else exitLearn();
+  }));
+
+  // ---------- controls ----------
+  $('#btn-new').addEventListener('click', () => newGame(true));
+  $('#result-new').addEventListener('click', () => newGame(true));
+  $('#result-close').addEventListener('click', () => { state.resultHidden = true; renderResult(); });
+  $('#btn-undo').addEventListener('click', takeback);
+  $('#btn-flip').addEventListener('click', () => { settings.flipped = !settings.flipped; renderAll(); save(); });
+  $('#btn-resign').addEventListener('click', resign);
+  $('#btn-pgn').addEventListener('click', () => {
+    const pgn = buildPgn();
+    const out = $('#pgn-out');
+    const done = () => { $('#btn-pgn').textContent = 'Copied'; setTimeout(() => { $('#btn-pgn').textContent = 'Copy PGN'; }, 1600); };
+    const fallback = () => { out.value = pgn; out.hidden = false; out.focus(); out.select(); $('#btn-pgn').textContent = 'Select & copy'; };
+    try {
+      navigator.clipboard.writeText(pgn).then(() => { out.hidden = true; done(); }, fallback);
+    } catch (_) { fallback(); }
+  });
+  $('#level').addEventListener('input', (e) => {
+    const v = Math.round(+e.target.value / 100) * 100;
+    if (!LEVELS[v]) return;
+    if (settings.level !== v && !state.over && state.moves.some((mv) => mv.by === 'human')) state.changed = true;
+    settings.level = v;
+    $('#level-out').textContent = v;
+    $('#level-word').textContent = LEVELS[v].word;
+    renderStrips();
+    renderControls();
+    save();
+  });
+  $('#btn-export').addEventListener('click', () => {
+    const games = localGames();
+    if (!games.length) return;
+    const text = games.map((g) => String(g.pgn || '').trim()).filter(Boolean).join('\n\n') + '\n';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/x-chess-pgn' }));
+    a.download = `chess-games-${new Date().toISOString().slice(0, 10)}.pgn`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  });
+  $('#opt-first').addEventListener('change', (e) => { settings.chooseFirst = e.target.checked; save(); });
+  document.querySelectorAll('.setup input[type="radio"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const before = opponentKind(), paceBefore = settings.pace;
+      if (input.name !== 'color' && settings[input.name] !== input.value && !state.over && state.moves.some((mv) => mv.by === 'human')) state.changed = true;
+      settings[input.name] = input.value;
+      save();
+      renderAll();
+      const changed = opponentKind() !== before || (input.name === 'pace' && settings.pace !== paceBefore);
+      if (input.name !== 'color' && changed && think && !think.standIn) {
+        // Restart the pending reply with the new opponent or pace.
+        opponentTurn();
+      } else if (input.name === 'opponent' && !think && !state.over && pos.turn !== state.human && opponentKind() === 'engine') {
+        opponentTurn();
+      }
+    });
+  });
+
+  function buildPgn() {
+    const d = new Date();
+    const date = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    const opp = opponentKind() === 'claude' ? 'Claude' : 'Built-in engine';
+    const r = resultText();
+    const result = r ? (state.over.winner === 0 ? '1-0' : state.over.winner === 1 ? '0-1' : '1/2-1/2') : '*';
+    const head = [
+      ['Event', 'Casual game'], ['Site', 'Chess with Claude'], ['Date', date], ['Round', '-'],
+      ['White', state.human === 0 ? 'You' : opp], ['Black', state.human === 1 ? 'You' : opp], ['Result', result],
+    ];
+    if (state.over && state.over.reason === 'resign') head.push(['Termination', 'Resignation']);
+    if (opponentKind() === 'engine') head.push([state.human === 0 ? 'BlackElo' : 'WhiteElo', String(settings.level)]);
+    if (state.fromOpening) head.push(['Opening', state.fromOpening]);
+    const body = movetext(state.moves) + ' ' + result;
+    const wrapped = body.replace(/(.{1,78})(\s|$)/g, '$1\n').trim();
+    return head.map(([k, v]) => `[${k} "${v}"]`).join('\n') + '\n\n' + wrapped + '\n';
+  }
+
+  // ---------- persistence ----------
+  function snapshot() {
+    if (learn.on) return Object.assign({}, learn.stash, { learn: state.moves.map((mv) => mv.uci), learnMode: learn.mode, learnSide: learn.side, learnOpening: learn.opening, learnTarget: learn.target ? learn.target.key : null, learnDone: learn.completed });
+    return {
+      moves: state.moves.map((mv) => ({ uci: mv.uci, by: mv.by, comment: mv.comment })),
+      human: state.human,
+      over: state.over,
+      clock: [clockValue(0), clockValue(1)],
+      settings: Object.assign({}, settings),
+      talk: { comment: talk.comment, after: talk.after },
+      tookBack: state.tookBack, changed: state.changed, saved: state.saved, saveNote: state.saveNote, fromOpening: state.fromOpening, manualTurn: state.manualTurn, hintsUsed: state.hintsUsed,
+    };
+  }
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify(snapshot())); } catch (_) {}
+  }
+  function readStore() {
+    try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (_) { return null; }
+  }
+  function restore(data) {
+    if (!data || !Array.isArray(data.moves)) return false;
+    const s = data.settings || {};
+    if (['white', 'black', 'random'].includes(s.color)) settings.color = s.color;
+    // Saves from before the engine became the default keep the new default.
+    if (s.v === 2 && ['claude', 'engine'].includes(s.opponent)) settings.opponent = s.opponent;
+    if (PACES[s.pace]) settings.pace = s.pace;
+    const lvl = OLD_LEVELS[s.level] || +s.level;
+    if (LEVELS[lvl]) settings.level = lvl;
+    settings.chooseFirst = !!s.chooseFirst;
+    settings.flipped = !!s.flipped;
+    state.human = data.human === 1 ? 1 : 0;
+    pos.load(pos.START);
+    state.moves = [];
+    state.keys = [pos.key()];
+    for (const mv of data.moves) {
+      const m = pos.find(String(mv.uci || ''));
+      if (!m) break;
+      const san = pos.san(m);
+      pos.make(m);
+      state.moves.push({ uci: mv.uci, san, by: mv.by, comment: String(mv.comment || '') });
+      state.keys.push(pos.key());
+    }
+    state.over = data.over && typeof data.over === 'object' && data.over.reason ? data.over : detectOver();
+    state.resultHidden = true;
+    viewPly = null;
+    state.clock = Array.isArray(data.clock) ? data.clock.map((x) => +x || 0) : [0, 0];
+    state.tickFrom = state.over ? null : now();
+    state.tookBack = !!data.tookBack;
+    state.changed = !!data.changed;
+    state.saved = data.saved != null ? !!data.saved : !!state.over;
+    state.saveNote = typeof data.saveNote === 'string' ? data.saveNote : '';
+    state.fromOpening = typeof data.fromOpening === 'string' ? data.fromOpening : null;
+    state.manualTurn = !!data.manualTurn && !state.over && pos.turn !== state.human;
+    state.hint = null;
+    state.hintsUsed = +data.hintsUsed || 0;
+    if (data.talk && data.talk.comment) talk = { comment: cleanComment(data.talk.comment), after: String(data.talk.after || ''), note: '', warn: false, actions: [] };
+    return true;
+  }
+
+  function start(data) {
+    const saved = data && Array.isArray(data.moves) ? data : readStore();
+    if (restore(saved)) {
+      renderAll();
+      // The engine is free to resume; Claude waits for an explicit "Ask Claude to move".
+      if (!state.over && pos.turn !== state.human && opponentKind() === 'engine' && !state.manualTurn) opponentTurn();
+    } else {
+      newGame(false);
+    }
+    if (saved && Array.isArray(saved.learn)) {
+      learn.mode = saved.learnMode === 'practice' ? 'practice' : 'explore';
+      learn.side = saved.learnSide === 1 ? 1 : 0;
+      if (OPENINGS[saved.learnOpening]) { learn.opening = saved.learnOpening; learn.root = bookRoot(learn.opening); }
+      if (learn.mode === 'practice' && typeof saved.learnTarget === 'string') learn.target = findNode(saved.learnTarget);
+      learn.completed = +saved.learnDone || 0;
+      enterLearn(saved.learn.map(String));
+    }
+  }
+
+  // Symbol fonts sit glyphs high in the line box; measure the ink and shift pieces to the square's centre.
+  function centerPieces() {
+    try {
+      const c = document.createElement('canvas').getContext('2d');
+      c.font = '100px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-pieces');
+      let sum = 0;
+      const glyphs = Object.values(FILL);
+      for (const g of glyphs) {
+        const m = c.measureText(g + VS);
+        if (!m.fontBoundingBoxAscent) return;
+        const base = (100 - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent)) / 2 + m.fontBoundingBoxAscent;
+        sum += base - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+      }
+      const shift = (50 - sum / glyphs.length) / 100;
+      if (Math.abs(shift) < 0.3) document.documentElement.style.setProperty('--pc-shift', shift.toFixed(3) + 'em');
+    } catch (_) {}
+  }
+  centerPieces();
+  if (document.fonts) {
+    document.fonts.ready.then(centerPieces);
+    document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', centerPieces);
+  }
+
+  // On wide screens, size the board so the whole game column fits the window height.
+  const boardCol = document.querySelector('.board-col');
+  const wide = window.matchMedia('(min-width: 901px)');
+  function fitBoard() {
+    if (!wide.matches) { boardCol.style.removeProperty('--fit'); return; }
+    const table = document.querySelector('.table');
+    const chrome = boardCol.offsetHeight - document.querySelector('.board-wrap').offsetHeight;
+    const avail = Math.floor(table.clientHeight - chrome - 2);
+    boardCol.style.setProperty('--fit', Math.max(280, avail) + 'px');
+  }
+  if (window.ResizeObserver) new ResizeObserver(fitBoard).observe(document.querySelector('.table'));
+  window.addEventListener('resize', fitBoard);
+  fitBoard();
+
+  // The scoresheet starts open and remembers whether you closed it.
+  try { $('#sheet-card').open = localStorage.getItem('chess-with-claude:sheetOpen') !== '0'; } catch (_) {}
+  $('#sheet-card').addEventListener('toggle', () => {
+    try { localStorage.setItem('chess-with-claude:sheetOpen', $('#sheet-card').open ? '1' : '0'); } catch (_) {}
+    if ($('#sheet-card').open) renderSheet();
+  });
+
+  // The New game panel starts collapsed and remembers whether you opened it.
+  try { $('#setup').open = localStorage.getItem('chess-with-claude:setupOpen') === '1'; } catch (_) {}
+  $('#setup').addEventListener('toggle', () => { try { localStorage.setItem('chess-with-claude:setupOpen', $('#setup').open ? '1' : '0'); } catch (_) {} });
+
+  // Board and piece themes: a per-browser preference.
+  const LOOK_STORE = 'chess-with-claude:look';
+  const BOARDS = { green: 'Tournament', walnut: 'Walnut', slate: 'Slate', coral: 'Coral', lavender: 'Lavender', teal: 'Teal', ocean: 'Ocean', amber: 'Amber', charcoal: 'Charcoal' };
+  const look = { board: 'green' };
+  try {
+    const saved = JSON.parse(localStorage.getItem(LOOK_STORE) || '{}');
+    if (BOARDS[saved.board]) look.board = saved.board;
+  } catch (_) {}
+  function applyLook() {
+    const root = document.documentElement;
+    if (look.board === 'green') root.removeAttribute('data-board'); else root.setAttribute('data-board', look.board);
+    root.removeAttribute('data-pieces');
+    document.querySelectorAll('#board-swatches .swatch').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.board === look.board)));
+    $('#look-now').textContent = BOARDS[look.board];
+    try { localStorage.setItem(LOOK_STORE, JSON.stringify(look)); } catch (_) {}
+  }
+  $('#board-swatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch'); if (b) { look.board = b.dataset.board; applyLook(); } });
+  applyLook();
+  try { $('#look').open = localStorage.getItem('chess-with-claude:lookOpen') === '1'; } catch (_) {}
+  $('#look').addEventListener('toggle', () => { try { localStorage.setItem('chess-with-claude:lookOpen', $('#look').open ? '1' : '0'); } catch (_) {} });
+
+  const hot = window.claude && window.claude.hot;
+  if (hot && typeof hot.snapshot === 'function') { try { hot.snapshot(() => snapshot()); } catch (_) {} }
+  if (hot && typeof hot.ready === 'function') hot.ready(start);
+  else start((hot && hot.data) || {});
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+</script>
+</body>
+</html>

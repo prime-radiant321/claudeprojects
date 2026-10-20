@@ -2555,6 +2555,15 @@ function createPosition(initialFen) {
       else if (state.hint && state.hint.fen === pos.fen()) { note = `Best move here: ${state.hint.san}. The orange arrow shows it on the board.`; warn = false; }
       else if (!actions.includes('hint')) actions = [...actions, 'hint'];
     }
+    // Play mode: the best-move hint also sits under the board.
+    if (!learn.on) {
+      const bh = $('#board-hint');
+      const shown = state.hint && state.hint.fen === pos.fen();
+      bh.hidden = !(hintBusy || (!think && !state.over && canMove()));
+      bh.className = 'btn board-hint';
+      bh.disabled = hintBusy || !!shown;
+      bh.textContent = hintBusy ? 'Thinking\u2026' : shown ? `Best: ${state.hint.san}` : 'Show best move';
+    }
     const noteEl = $('#talk-note');
     noteEl.className = 'talk-note' + (warn ? ' warn' : '');
     noteEl.innerHTML = (busy ? '<span class="pulse" aria-hidden="true"></span>' : '');
@@ -3076,7 +3085,7 @@ function createPosition(initialFen) {
   }
   function renderLearn() {
     document.querySelectorAll('.play-only').forEach((el) => { el.hidden = learn.on; });
-    if (!practising()) $('#board-hint').hidden = true;
+    if (learn.on && !practising()) $('#board-hint').hidden = true;
     $('#coach-card').hidden = !learn.on || claude.status === 'off';
     $('#learn').hidden = !learn.on;
     $('#mode-' + (learn.on ? 'learn' : 'play')).checked = true;
@@ -3253,7 +3262,7 @@ function createPosition(initialFen) {
     learn.feedback = { bad: false, text: `Again: ${fullName(learn.target)}. The book will steer into the same line.` };
     renderLearn();
   });
-  $('#board-hint').addEventListener('click', () => $('#learn-hint').click());
+  $('#board-hint').addEventListener('click', () => { if (learn.on) $('#learn-hint').click(); else requestHint(); });
   $('#learn-hint').addEventListener('click', () => {
     if (!practising()) return;
     if (!learn.node.kids.length) { if (learn.target) { startLine(nextLine(learn.target)); return; } learnRestart(); return; }

@@ -319,6 +319,8 @@ details[open] > .setup-sum { border-bottom-left-radius: 0; border-bottom-right-r
 .review-label { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 .review-label strong { color: var(--ink); font-weight: 600; }
 .review .live-btn { margin-left: auto; }
+.review .board-hint { margin-left: auto; }
+.review .board-hint:not([hidden]) + .live-btn { margin-left: 0; }
 .board-wrap.reviewing .board { box-shadow: 0 0 0 3px var(--accent), 0 14px 34px -16px var(--shadow); }
 .sheet .mv { all: unset; cursor: pointer; padding: 2px 5px; margin-left: -5px; border-radius: 4px; }
 .sheet .mv:hover { background: var(--line); }
@@ -517,6 +519,7 @@ details[open] > summary .caret { transform: rotate(90deg); }
           <button class="btn" type="button" id="nav-last" aria-label="Go to the current position">»</button>
         </div>
         <span class="review-label" id="review-label" aria-live="polite"></span>
+        <button class="btn board-hint" type="button" id="board-hint" hidden>Show a hint</button>
         <button class="btn primary live-btn" type="button" id="nav-live" hidden>Back to game</button>
       </div>
     </section>
@@ -3093,6 +3096,7 @@ function createPosition(initialFen) {
   }
   function renderLearn() {
     document.querySelectorAll('.play-only').forEach((el) => { el.hidden = learn.on; });
+    if (!practising()) $('#board-hint').hidden = true;
     $('#coach-card').hidden = !learn.on || claude.status === 'off';
     $('#learn').hidden = !learn.on;
     $('#mode-' + (learn.on ? 'learn' : 'play')).checked = true;
@@ -3143,6 +3147,12 @@ function createPosition(initialFen) {
     hintBtn.textContent = done ? (learn.target ? 'Next unchecked line' : 'Next line') : learn.hint === 0 ? 'Show a hint' : learn.hint === 1 ? 'Show the moves' : 'Hint shown';
     hintBtn.className = 'btn' + (done ? ' primary' : '');
     hintBtn.disabled = !done && (pos.turn !== learn.side || learn.hint >= 2 || !!learn.timer);
+    // The same hint button under the board, so it is in reach while you play.
+    const boardHint = $('#board-hint');
+    boardHint.hidden = !prac || viewPly != null;
+    boardHint.textContent = hintBtn.textContent;
+    boardHint.disabled = hintBtn.disabled;
+    boardHint.className = hintBtn.className + ' board-hint';
     $('#practice-stats').textContent = `Mistakes ${learn.mistakes} \u00B7 Hints ${learn.hints} \u00B7 Lines done ${learn.completed}`;
     $('#learn-restart').textContent = prac ? 'New line' : 'Restart';
     const showList = !prac || (learn.hint >= 2 && pos.turn === learn.side);
@@ -3263,6 +3273,7 @@ function createPosition(initialFen) {
     learn.feedback = { bad: false, text: `Again: ${fullName(learn.target)}. The book will steer into the same line.` };
     renderLearn();
   });
+  $('#board-hint').addEventListener('click', () => $('#learn-hint').click());
   $('#learn-hint').addEventListener('click', () => {
     if (!practising()) return;
     if (!learn.node.kids.length) { if (learn.target) { startLine(nextLine(learn.target)); return; } learnRestart(); return; }

@@ -314,17 +314,16 @@ details[open] > .setup-sum { border-bottom-left-radius: 0; border-bottom-right-r
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 
 /* A fixed grid, so changing labels or button text never re-flows the row. */
-.review { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 10.5rem; grid-template-areas: "nav label live hint"; align-items: center; gap: 8px; min-height: 38px; }
+.review { display: grid; grid-template-columns: auto minmax(0, 1fr) 8.5rem 10.5rem; grid-template-areas: "nav label live hint"; align-items: center; gap: 8px; min-height: 38px; }
 .nav { grid-area: nav; display: flex; gap: 4px; }
 .nav .btn { min-width: 40px; padding-inline: 8px; font-size: 17px; line-height: 1; }
 .review-label { grid-area: label; min-width: 0; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .review-label strong { color: var(--ink); font-weight: 600; }
-.review .live-btn { grid-area: live; white-space: nowrap; }
+.review .live-btn { grid-area: live; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-inline: 8px; }
 .review .board-hint { grid-area: hint; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-inline: 8px; }
 @media (max-width: 600px) {
-  .review { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "nav hint" "label live"; row-gap: 6px; }
-  .review .board-hint { width: min(100%, 10rem); justify-self: end; }
-  .review-label { min-height: 38px; display: flex; align-items: center; }
+  .review { grid-template-columns: minmax(0, 1fr) 10rem; grid-template-areas: "nav hint" "label live"; row-gap: 6px; }
+  .review-label { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; line-height: 18px; }
 }
 @media (max-width: 400px) { .nav .btn { min-width: 34px; padding-inline: 6px; } }
 .board-wrap.reviewing .board { box-shadow: 0 0 0 3px var(--accent), 0 14px 34px -16px var(--shadow); }

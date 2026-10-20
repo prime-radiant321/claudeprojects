@@ -313,14 +313,20 @@ details[open] > .setup-sum { border-bottom-left-radius: 0; border-bottom-right-r
 .elo-scale { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 
-.review { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.nav { display: flex; gap: 4px; }
+/* A fixed grid, so changing labels or button text never re-flows the row. */
+.review { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 10.5rem; grid-template-areas: "nav label live hint"; align-items: center; gap: 8px; min-height: 38px; }
+.nav { grid-area: nav; display: flex; gap: 4px; }
 .nav .btn { min-width: 40px; padding-inline: 8px; font-size: 17px; line-height: 1; }
-.review-label { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.review-label { grid-area: label; min-width: 0; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .review-label strong { color: var(--ink); font-weight: 600; }
-.review .live-btn { margin-left: auto; }
-.review .board-hint { margin-left: auto; }
-.review .board-hint:not([hidden]) + .live-btn { margin-left: 0; }
+.review .live-btn { grid-area: live; white-space: nowrap; }
+.review .board-hint { grid-area: hint; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-inline: 8px; }
+@media (max-width: 600px) {
+  .review { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "nav hint" "label live"; row-gap: 6px; }
+  .review .board-hint { width: min(100%, 10rem); justify-self: end; }
+  .review-label { min-height: 38px; display: flex; align-items: center; }
+}
+@media (max-width: 400px) { .nav .btn { min-width: 34px; padding-inline: 6px; } }
 .board-wrap.reviewing .board { box-shadow: 0 0 0 3px var(--accent), 0 14px 34px -16px var(--shadow); }
 .sheet .mv { all: unset; cursor: pointer; padding: 2px 5px; margin-left: -5px; border-radius: 4px; }
 .sheet .mv:hover { background: var(--line); }
@@ -340,7 +346,9 @@ details[open] > .setup-sum { border-bottom-left-radius: 0; border-bottom-right-r
 .arrows .a.hot polygon { fill: var(--arrow-hot); }
 .arrows .a.hot circle { fill: var(--arrow-hot-solid); }
 .arrows text { fill: var(--badge-ink); font: 700 0.22px var(--font-body); text-anchor: middle; dominant-baseline: central; }
-.learn { padding: 16px 18px; display: grid; gap: 12px; }
+.learn { padding: 0; }
+.learn-body { padding: 2px 18px 16px; display: grid; gap: 12px; }
+.learn-label { font-size: 13px; font-weight: 600; color: var(--ink); }
 .learn-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .learn select { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 .learn h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 25px; line-height: 1.15; text-wrap: balance; }
@@ -368,10 +376,12 @@ details[open] > .setup-sum { border-bottom-left-radius: 0; border-bottom-right-r
 .sq.wrong::before { background: var(--check); opacity: 0.55; }
 .playon { display: grid; gap: 10px; padding: 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); }
 .panel .save-note { font-size: 13px; color: var(--muted); }
-.ltree-card { padding: 14px 16px; display: grid; gap: 10px; }
-.ltree-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ltree-card { padding: 0; }
+.ltree-inner { padding: 2px 16px 14px; display: grid; gap: 10px; }
+.ltree-head { display: flex; align-items: center; gap: 12px; }
+.ltree-head .ltree-bar { flex: 1; }
 .ltree-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ltree-btns { margin-left: auto; display: flex; gap: 6px; }
+.ltree-btns { flex: none; display: flex; gap: 6px; }
 .ltree-btns .btn { padding: 6px 10px; min-height: 32px; font-size: 13px; }
 .ltree-bar { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
 .ltree-bar span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
@@ -525,9 +535,11 @@ details[open] > summary .caret { transform: rotate(90deg); }
     </section>
 
     <aside class="side">
-      <section class="card learn" id="learn" hidden aria-label="Opening explorer">
+      <details class="card learn" id="learn" hidden open>
+        <summary class="setup-sum"><span class="eyebrow">Opening explorer</span><span class="setup-now" id="learn-now"></span><span class="caret" aria-hidden="true">▶</span></summary>
+        <div class="learn-body">
         <div class="learn-head">
-          <p class="eyebrow">Opening explorer</p>
+          <label class="learn-label" for="learn-opening">Opening</label>
           <select id="learn-opening" aria-label="Opening"><option value="ruy">Ruy Lopez</option><option value="italian">Italian Game</option><option value="qg">Queen's Gambit</option><option value="london">London System</option><option value="english">English Opening</option><option value="kid">King's Indian Defence</option><option value="kia">King's Indian Attack</option></select>
         </div>
         <div class="seg" aria-label="Explorer mode">
@@ -560,22 +572,24 @@ details[open] > summary .caret { transform: rotate(90deg); }
           <span class="practice-stats" id="practice-stats"></span>
         </div>
         <ul class="cands" id="learn-cands"></ul>
-      </section>
-
-      <section class="card ltree-card" id="ltree" hidden aria-label="Lines to practise">
-        <div class="ltree-head">
-          <p class="eyebrow">Lines to practise</p>
-          <span class="ltree-count" id="ltree-count"></span>
-          <div class="ltree-btns">
-            <button class="btn" type="button" id="ltree-any">Any line</button>
-            <button class="btn" type="button" id="ltree-reset">Reset</button>
-          </div>
         </div>
-        <div class="ltree-bar" aria-hidden="true"><span id="ltree-bar"></span></div>
-        <p class="ltree-stats" id="ltree-stats"></p>
-        <p class="hint" id="ltree-hint"></p>
-        <div class="ltree-body" id="ltree-body"></div>
-      </section>
+      </details>
+
+      <details class="card ltree-card" id="ltree" hidden open>
+        <summary class="setup-sum"><span class="eyebrow">Lines to practise</span><span class="setup-now ltree-count" id="ltree-count"></span><span class="caret" aria-hidden="true">▶</span></summary>
+        <div class="ltree-inner">
+          <div class="ltree-head">
+            <div class="ltree-bar" aria-hidden="true"><span id="ltree-bar"></span></div>
+            <div class="ltree-btns">
+              <button class="btn" type="button" id="ltree-any">Any line</button>
+              <button class="btn" type="button" id="ltree-reset">Reset</button>
+            </div>
+          </div>
+          <p class="ltree-stats" id="ltree-stats"></p>
+          <p class="hint" id="ltree-hint"></p>
+          <div class="ltree-body" id="ltree-body"></div>
+        </div>
+      </details>
 
       <section class="card talk play-only">
         <div class="talk-head">
@@ -2582,7 +2596,7 @@ function createPosition(initialFen) {
       bh.hidden = !(hintBusy || (!think && !state.over && canMove()));
       bh.className = 'btn board-hint';
       bh.disabled = hintBusy || !!shown;
-      bh.textContent = hintBusy ? 'Thinking\u2026' : shown ? `Best: ${state.hint.san}` : 'Show best move';
+      bh.textContent = hintBusy ? 'Thinking\u2026' : shown ? `Best: ${state.hint.san}` : 'Best move';
     }
     const noteEl = $('#talk-note');
     noteEl.className = 'talk-note' + (warn ? ' warn' : '');
@@ -3114,6 +3128,7 @@ function createPosition(initialFen) {
     const node = learn.node, ply = state.moves.length;
     const prac = practising();
     $('#lmode-' + learn.mode).checked = true;
+    $('#learn-now').textContent = `${OPENINGS[learn.opening].name} \u00B7 ${prac ? 'Practise as ' + COLOR[learn.side] : 'Explore'}`;
     $('#learn-opening').value = learn.opening;
     $('#lside-' + (learn.side ? 'black' : 'white')).checked = true;
     $('#lside-seg').hidden = !prac;
@@ -3159,7 +3174,8 @@ function createPosition(initialFen) {
     // The same hint button under the board, so it is in reach while you play.
     const boardHint = $('#board-hint');
     boardHint.hidden = !prac || viewPly != null;
-    boardHint.textContent = hintBtn.textContent;
+    const SHORT = { 'Show a hint': 'Hint', 'Show the moves': 'Show moves', 'Next unchecked line': 'Next unchecked' };
+    boardHint.textContent = SHORT[hintBtn.textContent] || hintBtn.textContent;
     boardHint.disabled = hintBtn.disabled;
     boardHint.className = hintBtn.className + ' board-hint';
     $('#practice-stats').textContent = `Mistakes ${learn.mistakes} \u00B7 Hints ${learn.hints} \u00B7 Lines done ${learn.completed}`;
@@ -3492,6 +3508,12 @@ function createPosition(initialFen) {
   if (window.ResizeObserver) new ResizeObserver(fitBoard).observe(document.querySelector('.table'));
   window.addEventListener('resize', fitBoard);
   fitBoard();
+
+  // The explorer and line tree start open and remember whether you closed them.
+  for (const [id, key] of [['learn', 'learnOpen'], ['ltree', 'ltreeOpen']]) {
+    try { $('#' + id).open = localStorage.getItem('chess-with-claude:' + key) !== '0'; } catch (_) {}
+    $('#' + id).addEventListener('toggle', () => { try { localStorage.setItem('chess-with-claude:' + key, $('#' + id).open ? '1' : '0'); } catch (_) {} });
+  }
 
   // The scoresheet starts open and remembers whether you closed it.
   try { $('#sheet-card').open = localStorage.getItem('chess-with-claude:sheetOpen') !== '0'; } catch (_) {}
